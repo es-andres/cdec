@@ -9,3 +9,4 @@ cdec/trained_models/*
 cdec/ignore.txt
 cdec/Pipfile
 java_assets/*
+perl_assets/*
