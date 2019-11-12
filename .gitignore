@@ -1,6 +1,9 @@
-# data directory
+.*
+!/.gitignore
+*.pyc
 data/*
 cdec/bin/*
+cdec/conll_output/*
 cdec/cache/*
 cdec/misc_notes/*
 cdec/results/*
