@@ -23,14 +23,15 @@ import org.spark_project.guava.io.Files;
 import com.google.common.base.Charsets;
 import com.google.common.math.Quantiles;
 
-import comparer.EvPairDataset;
-import comparer.TFIDF;
+import ecb_utils.ECBDoc;
+import ecb_utils.ECBWrapper;
+import ecb_utils.EventNode;
 import edu.stanford.nlp.ling.IndexedWord;
 import edu.stanford.nlp.pipeline.CoreSentence;
 import edu.stanford.nlp.util.StringUtils;
+import feature_extraction.EvPairDataset;
+import feature_extraction.TFIDF;
 import me.tongfei.progressbar.ProgressBar;
-import naf.EventNode;
-import naf.NafDoc;
 import weka.classifiers.Classifier;
 import weka.core.Instance;
 import weka.core.Instances;
@@ -109,8 +110,8 @@ public class Utils {
 			else if(colName.equals("description"))
 				logRow += logMessage.replace(",",";") + ",";
 			else
-//				logRow += scores.get(colName).get(scores.get(colName).size() - 1) +  ",";
-				logRow += scores.get(colName).stream().mapToDouble(a -> a).average().getAsDouble() + ",";
+				logRow += scores.get(colName).get(scores.get(colName).size() - 1) +  ",";
+//				logRow += scores.get(colName).stream().mapToDouble(a -> a).average().getAsDouble() + ",";
 		}
 		logRow = logRow.substring(0, logRow.length() - 1) + "\n";
 		
@@ -183,7 +184,6 @@ public class Utils {
             }
         }
 		LinkedList<List<Integer>> kTestSets = new LinkedList<List<Integer>>();
-		boolean shuffle = false;
 		for(int[] fold : test) {
 			List<Integer> l = new LinkedList<Integer>();
 			for(int idx : fold) {
@@ -240,7 +240,7 @@ public class Utils {
 		HashMap<String, LinkedList<String>> map = new HashMap<String, LinkedList<String>>();
 		List<File> files = ECBWrapper.getFilesFromTopics(topics);
 		for(File f : files) {
-			NafDoc doc = dataWrapper.docs.get(f.getName());
+			ECBDoc doc = dataWrapper.docs.get(f.getName());
 			String topicKey = doc.getTopic() + "_" + doc.getSubTopic();
 			if(!map.containsKey(topicKey))
 				map.put(topicKey, new LinkedList<String>());
@@ -295,8 +295,8 @@ public class Utils {
 		
 		for(File f1 : ProgressBar.wrap(trainFiles,"Computing doc dist cutoff")) {
 			for(File f2 : trainFiles) {
-				NafDoc doc1 = dataWrapper.docs.get(f1.getName());
-				NafDoc doc2 = dataWrapper.docs.get(f2.getName());
+				ECBDoc doc1 = dataWrapper.docs.get(f1.getName());
+				ECBDoc doc2 = dataWrapper.docs.get(f2.getName());
 				if(!f1.equals(f2) && doc1.getTopic().equals(doc2.getTopic()) 
 						&& doc1.getSubTopic().equals(doc2.getSubTopic())
 						&& seen.add(new HashSet<File>(Arrays.asList(f1,f2)))) {
@@ -314,8 +314,13 @@ public class Utils {
 		return falseSims.getMean();
 	}
 	
-	public static GeneralTuple<Double, HashMap<HashSet<EventNode>, Double>> testClassifier(Classifier clf, List<List<EventNode>> testPairs,  
-																	 EvPairDataset dataMaker, ECBWrapper dataWrapper, 
+	
+	public static double computeTestDocSimCutoff() {
+		
+		return 0;
+	}
+	
+	public static GeneralTuple<Double, HashMap<HashSet<EventNode>, Double>> testClassifier(Classifier clf, LinkedList<GeneralTuple<Instance, List<EventNode>>> test, 
 																	 Instances train, HashMap<String, ArrayList<Double>> scores,
 																	 double beta) {
 		LOGGER.info("Testing classifier and finding optimal prediction cutoff");
@@ -326,9 +331,23 @@ public class Utils {
 		ArrayList<Double> preds = new ArrayList<Double>();
 		ArrayList<Integer> labels = new ArrayList<Integer>();
 		HashMap<HashSet<EventNode>, Double> predLog = new HashMap<HashSet<EventNode>, Double>();
-		for(List<EventNode> pair : testPairs) {
-			Instance inst = dataMaker.evPairVector(dataWrapper, pair, Globals.LEMMATIZE, Globals.POS);
-			inst.setDataset(train);
+//		for(List<EventNode> pair : testPairs) {
+//			Instance inst = dataMaker.evPairVector(dataWrapper, pair, Globals.LEMMATIZE, Globals.POS);
+//			inst.setDataset(train);
+//			double pred;
+//			try {
+//				pred = clf.distributionForInstance(inst)[1];
+//				preds.add(pred);
+//				labels.add((int)inst.classValue());
+//				predLog.put(new HashSet<EventNode>(pair), pred);
+//			} catch (Exception e) {
+//				e.printStackTrace();
+//			}
+//
+//		}
+		for(GeneralTuple<Instance, List<EventNode>> tup : test) {
+			Instance inst = tup.first;
+			List<EventNode> pair = tup.second;
 			double pred;
 			try {
 				pred = clf.distributionForInstance(inst)[1];
@@ -340,6 +359,7 @@ public class Utils {
 			}
 
 		}
+
 		double max_cutoff = Double.MIN_VALUE;
 		double max_recall = Double.MIN_VALUE;
 		double max_precision = Double.MIN_VALUE;
@@ -391,7 +411,7 @@ public class Utils {
 	    scores.get("clf_accuracy").add(max_accuracy);
 	    scores.get("clf_cutoff").add(max_cutoff);
 	    
-	    return new GeneralTuple(max_cutoff, predLog);
+	    return new GeneralTuple<Double, HashMap<HashSet<EventNode>, Double>>(max_cutoff, predLog);
 		
 	}
 }

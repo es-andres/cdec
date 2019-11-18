@@ -7,5 +7,9 @@ CLEAN_SENT_PATH = os.path.join(ROOT_DIR, 'data', 'ECBplus_coreference_sentences.
 parser = argparse.ArgumentParser(description='Process clustering args')
 parser.add_argument('topics', type=str,
                     help='a comma delimited list of topics')
+parser.add_argument('damping', type=float,
+                    help='damping for affinity propagation')
 parser.add_argument('num_labels', type=int, nargs='?',
                     help='number of clusters for kmeans')
+
+

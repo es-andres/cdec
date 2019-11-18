@@ -1,5 +1,8 @@
 package common;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.StringJoiner;
 
@@ -48,6 +51,34 @@ public class PerformanceMetric {
 		blancP = new ArrayList<Double>();
 		conllF1 = 0;
 	}
+	
+	public static PerformanceMetric getConllScores(File goldConll, File modelConll, String name) {
+		
+		/*
+		 * run conll scorer
+		 */
+		StringBuilder builder = new StringBuilder();
+		try {
+			Process process = new ProcessBuilder("perl", Globals.CONLL_SCORER_PATH.toString(), "all", 
+												 goldConll.toString(), modelConll.toString()).start();
+			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+			String line = null;
+			while ( (line = reader.readLine()) != null) {
+			   builder.append(line);
+			   builder.append(System.getProperty("line.separator"));
+			}
+		}
+		catch(Exception e) {
+			e.printStackTrace();
+		}
+		PerformanceMetric metrics = new PerformanceMetric();
+		String result = builder.toString();
+
+		metrics.addConllMetrics(result, false);
+
+		return metrics;
+	}
+	
 	public double getMetric(String s) {
 		double res = -1;
 		switch(s) {

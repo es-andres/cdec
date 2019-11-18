@@ -20,6 +20,17 @@
   <nd4j.version>1.0.0-alpha</nd4j.version>
   </properties>
   <dependencies> 
+	<!-- https://mvnrepository.com/artifact/ml.dmlc/xgboost4j -->
+	<dependency>
+	    <groupId>ml.dmlc</groupId>
+	    <artifactId>xgboost4j</artifactId>
+	    <version>0.72</version>
+	</dependency>
+    <dependency>
+       <groupId>biz.k11i</groupId>
+       <artifactId>xgboost-predictor</artifactId>
+       <version>0.3.0</version>
+    </dependency>
   	<!-- https://mvnrepository.com/artifact/com.github.haifengl/smile-math -->
 	<dependency>
 	    <groupId>com.github.haifengl</groupId>
@@ -232,4 +243,10 @@
     	<version>1.0.10</version>
 	</dependency>
   </dependencies>
+<repositories>
+    <repository>
+        <id>bintray-komiya-atsushi-maven</id>
+        <url>http://dl.bintray.com/komiya-atsushi/maven</url>
+    </repository>
+</repositories>
 </project>

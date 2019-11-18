@@ -45,9 +45,11 @@ class ECBWrapper:
             for line in f.readlines()[1:]:
                 line = line.split(',')
                 f_name = line[0] + '_' + line[1]
-                if f_name not in self.annotated:
-                    self.annotated[f_name] = []
-                self.annotated[f_name].append(line[2].replace('\n',''))
+                f_name = join(self.root_dir, f_name + '_aug.en.naf')
+                if f_name in self.all_files:
+                    if f_name not in self.annotated:
+                        self.annotated[f_name] = []
+                    self.annotated[f_name].append(line[2].replace('\n',''))
 
     def make_data_for_clustering(self, option, topics, filter=False,sub_topics=False):
         documents = []
@@ -83,11 +85,11 @@ class ECBWrapper:
     def get_topic(self, topic, sub_topic=-1):
         files = []
         if sub_topic == -1:
-            for f in self.all_files:
+            for f in self.annotated.keys():
                 if os.path.basename(f).split("_")[0] == str(topic):
                     files.append(f)
         else:
-            for f in self.all_files:
+            for f in self.annotated.keys():
                 # ecb
                 if sub_topic == 1:
                     if os.path.basename(f).split("_")[0] == str(topic) and not 'plus' in f:

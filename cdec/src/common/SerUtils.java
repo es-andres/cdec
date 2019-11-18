@@ -13,9 +13,10 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import ecb_utils.ECBDoc;
+import ecb_utils.ECBWrapper;
 import edu.stanford.nlp.pipeline.ProtobufAnnotationSerializer;
 import me.tongfei.progressbar.ProgressBar;
-import naf.NafDoc;
 
 public class SerUtils {
 	private static final Logger LOGGER = Logger.getLogger(SerUtils.class.getName());
@@ -25,10 +26,10 @@ public class SerUtils {
 		List<Integer> topics = IntStream.rangeClosed(1, 45).boxed().collect(Collectors.toList());
 	    List<File> allFiles = ECBWrapper.getFilesFromTopics(topics);
 
-		Globals.nafDocs = new HashMap<String, NafDoc>();
+		Globals.nafDocs = new HashMap<String, ECBDoc>();
 		LOGGER.info("loading all files...");
 		for(File f : ProgressBar.wrap(allFiles, "Load all files")) {
-			NafDoc doc = new NafDoc(f);
+			ECBDoc doc = new ECBDoc(f);
 			ProtobufAnnotationSerializer ser = new ProtobufAnnotationSerializer();
 			serializeObj(ser.toProto(doc.coreDoc.annotation()), Paths.get(Globals.CACHED_CORE_DOCS.toString(), f.getName() + ".ser").toFile());
 			serializeObj(doc.sentenceToSRLNodes, Paths.get(Globals.CACHED_SRL.toString(), f.getName() + ".ser").toFile());

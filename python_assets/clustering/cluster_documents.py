@@ -11,6 +11,7 @@ import sys
 args = glob.parser.parse_args()
 topics = args.topics.split(' ')
 num_labels = args.num_labels
+damp = args.damping
 
 ecb_wrapper = ECBWrapper(glob.ECBPLUS_DIR, topics=None, lemmatize=False)
 docs, targets, f_names = ecb_wrapper.make_data_for_clustering(option='text',
@@ -25,7 +26,7 @@ if num_labels:
                             n_init=20, random_state=665,
                             n_jobs=20, algorithm='auto').fit(X)
 else:
-    clustering_obj = AffinityPropagation(damping=0.5).fit(X)
+    clustering_obj = AffinityPropagation(damping=damp).fit(X)
 clusters = defaultdict(list)
 for k,v in zip(clustering_obj.labels_, f_names):
     clusters[k].append(v)
