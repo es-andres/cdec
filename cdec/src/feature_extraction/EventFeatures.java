@@ -15,7 +15,7 @@ import edu.stanford.nlp.ling.IndexedWord;
 import edu.stanford.nlp.pipeline.CoreSentence;
 
 
-public class TFIDF {
+public class EventFeatures {
 	
 	public HashMap<String, Integer> dict;
 	public final boolean lemmatize;
@@ -25,7 +25,7 @@ public class TFIDF {
 	public HashMap<String, Integer> freqs;
 	public double numGrams;
 
-	public TFIDF(List<CoreSentence> docs, boolean lemmatize, String[] pos, int ngrams) {
+	public EventFeatures(List<CoreSentence> docs, boolean lemmatize, String[] pos, int ngrams) {
 		this.lemmatize = lemmatize;
 		this.pos = new HashSet<String>(Arrays.asList(pos));
 		this.ngrams = ngrams;
