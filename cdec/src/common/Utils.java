@@ -1,6 +1,8 @@
 package common;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
@@ -14,10 +16,6 @@ import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
-import org.apache.commons.math3.ml.distance.DistanceMeasure;
-import org.apache.commons.math3.ml.distance.EuclideanDistance;
-import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
-import org.nd4j.linalg.ops.transforms.Transforms;
 import org.spark_project.guava.io.Files;
 
 import com.google.common.base.Charsets;
@@ -26,12 +24,7 @@ import com.google.common.math.Quantiles;
 import ecb_utils.ECBDoc;
 import ecb_utils.ECBWrapper;
 import ecb_utils.EventNode;
-import edu.stanford.nlp.ling.IndexedWord;
-import edu.stanford.nlp.pipeline.CoreSentence;
 import edu.stanford.nlp.util.StringUtils;
-import feature_extraction.EvPairDataset;
-import feature_extraction.TFIDF;
-import me.tongfei.progressbar.ProgressBar;
 import weka.classifiers.Classifier;
 import weka.core.Instance;
 import weka.core.Instances;
@@ -45,6 +38,26 @@ public class Utils {
 	
 	private static final Logger LOGGER = Logger.getLogger(Utils.class.getName());
 	
+	public static HashMap<String, HashSet<String>> makeCleanSentenceDict(File cleanTable) {
+		HashMap<String, HashSet<String>> records = new HashMap<String,HashSet<String>>();
+
+		try (BufferedReader br = new BufferedReader(new FileReader(cleanTable))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				String[] values = line.split(",");
+				String fileName = values[0] + "_" + values[1];
+				String sentenceNum = values[2].replaceAll(" ", "");
+				if(!records.containsKey(fileName))
+					records.put(fileName, new HashSet<String>());
+				records.get(fileName).add(sentenceNum);
+			}
+		}
+		catch(IOException e) {
+			e.printStackTrace();
+		}
+
+		return records;
+	}
 	
 	public static void logResults(HashMap<String, ArrayList<Double>> scores, String logMessage, String experiment_id) {
 		String time = new Timestamp(System.currentTimeMillis()).toString().replace(" ", "_");
@@ -136,8 +149,10 @@ public class Utils {
 		LOGGER.info("Avgs. written to " + avgFile);
 		LOGGER.info("Log written to " + logTxtFile);
 	}
+	
     /**
-     * Constructor.
+     * Make cross validation folds using indexing on an array. 
+     * 
      * @param n the number of samples.
      * @param k the number of rounds of cross validation.
      * @param permutate determiner of index permutation
@@ -193,6 +208,14 @@ public class Utils {
 		}
         return kTestSets;
     }
+    
+    /**
+     * Scores are stored here. 
+     * 
+     * @param conllMetrics
+     * @param types
+     * @return
+     */
 	public static HashMap<String, ArrayList<Double>> initScoreMap(String[] conllMetrics, String[] types) {
 		HashMap<String, ArrayList<Double>> scores = new HashMap<String, ArrayList<Double>>();
 		new HashMap<String, ArrayList<Double>>(); // store performance metrics
@@ -207,7 +230,7 @@ public class Utils {
     	scores.put("clf_cutoff", new ArrayList<Double>());
     	scores.put("clf_accuracy", new ArrayList<Double>());
     	
-    	for(String t : Arrays.asList("train", "this", "unfilt", "gold"))
+    	for(String t : Arrays.asList("train", "this", "gold"))
     		for(String b : Arrays.asList("true", "false"))
     			scores.put(t+"_"+b+"_pairs", new ArrayList<Double>());
     	
@@ -217,6 +240,11 @@ public class Utils {
     	return scores;
 	}
 	
+	/**
+	 * Makes a map from file name to the predicted document cluster
+	 * @param map
+	 * @return
+	 */
 	public static HashMap<String, String> fNameToPredictedDocCluster(Map<String, String> map){
 		HashMap<String, String> invertedMap = new HashMap<String, String>();
 		for(String clustId : map.keySet()) {
@@ -227,6 +255,12 @@ public class Utils {
 		return invertedMap;
 	}
 	
+	/**
+	 * Makes a map from file name to gold-standard document cluster
+	 * @param testTopics
+	 * @param dataWrapper
+	 * @return
+	 */
 	public static HashMap<String, String> fNameToGoldDocCluster(List<Integer> testTopics, ECBWrapper dataWrapper){
 		HashMap<String, String> map = new HashMap<String, String>();
 		List<File> files = ECBWrapper.getFilesFromTopics(testTopics);
@@ -236,6 +270,12 @@ public class Utils {
 		return map;	
 	}
 	
+	/**
+	 * Makes a map from gold-standard document cluster to a list of its files
+	 * @param topics
+	 * @param dataWrapper
+	 * @return
+	 */
 	public static HashMap<String, String> goldDocClusterTofName(List<Integer> topics, ECBWrapper dataWrapper){
 		HashMap<String, LinkedList<String>> map = new HashMap<String, LinkedList<String>>();
 		List<File> files = ECBWrapper.getFilesFromTopics(topics);
@@ -253,98 +293,16 @@ public class Utils {
 		return strMap;	
 	}
 	
-	public static double computeTrainEvDistCutoff(ECBWrapper dataWrapper) {
-		
-		HashSet<HashSet<EventNode>> seen = new HashSet<HashSet<EventNode>>();
-		SummaryStatistics trueDists = new SummaryStatistics();
-		SummaryStatistics falseDists = new SummaryStatistics();
-		for(EventNode ev1 : ProgressBar.wrap(dataWrapper.trainCorefGraph.nodes(),"Computing evSim cutoff")) {
-			for(EventNode ev2 : dataWrapper.trainCorefGraph.nodes()) {
-//				double docSim = Transforms.cosineSim(dataWrapper.docs.get(ev1.file.getName()).tfidfVec, 
-//										   dataWrapper.docs.get(ev2.file.getName()).tfidfVec);
-				if(!ev1.equals(ev2) && ev1.getTopic().equals(ev2.getTopic()) 
-						&& ev1.getSubTopic().equals(ev2.getSubTopic())
-						&& !ev1.file.equals(ev2.file) // cross doc
-						&& seen.add(new HashSet<EventNode>(Arrays.asList(ev1,ev2)))) {
-					
-					List<IndexedWord> ev1Text = EvPairDataset.mainEvText(ev1, dataWrapper.docs.get(ev1.file.getName()));
-					List<IndexedWord> ev2Text = EvPairDataset.mainEvText(ev2, dataWrapper.docs.get(ev2.file.getName()));
-					List<CoreSentence> ev1Sentences = Arrays.asList(EvPairDataset.evMainSentence(ev1, dataWrapper.docs.get(ev1.file.getName())));
-					List<CoreSentence> ev2Sentences = Arrays.asList(EvPairDataset.evMainSentence(ev2, dataWrapper.docs.get(ev2.file.getName())));
-					List<CoreSentence> sentenceCorpus = EvPairDataset.makeSentCorpus(ev1Sentences, ev2Sentences, ev1.file.equals(ev2.file));
-					TFIDF comparer = new TFIDF(sentenceCorpus, Globals.LEMMATIZE, Globals.POS, 1);
-					DistanceMeasure dist = new EuclideanDistance();
-					double evDist = dist.compute(comparer.makeEvVector(ev1Text, ev1Sentences), comparer.makeEvVector(ev2Text, ev2Sentences));
-					if(ev1.corefers(ev2))
-						trueDists.addValue(evDist);
-					else
-						falseDists.addValue(evDist);
-				}
-			}
-		}
-//		System.out.println("true: " + trueDists.getMean() + " +/- " + trueDists.getVariance());
-//		System.out.println("false: " + falseDists.getMean() + " +/- " + falseDists.getVariance() + "\n");
-		return falseDists.getMean();
-	}
-	
-	public static double computeTrainDocSimCutoff(ECBWrapper dataWrapper) {
-		HashSet<HashSet<File>> seen = new HashSet<HashSet<File>>();
-		SummaryStatistics trueSims = new SummaryStatistics();
-		SummaryStatistics falseSims = new SummaryStatistics();
-		List<File> trainFiles = ECBWrapper.getFilesFromTopics(dataWrapper.trainTopics);
-		
-		for(File f1 : ProgressBar.wrap(trainFiles,"Computing doc dist cutoff")) {
-			for(File f2 : trainFiles) {
-				ECBDoc doc1 = dataWrapper.docs.get(f1.getName());
-				ECBDoc doc2 = dataWrapper.docs.get(f2.getName());
-				if(!f1.equals(f2) && doc1.getTopic().equals(doc2.getTopic()) 
-						&& doc1.getSubTopic().equals(doc2.getSubTopic())
-						&& seen.add(new HashSet<File>(Arrays.asList(f1,f2)))) {
-					
-					double docSim = Transforms.cosineSim(doc1.tfidfVec, doc2.tfidfVec);
-					if(ECBWrapper.coferer(doc1, doc2))
-						trueSims.addValue(docSim);
-					else
-						falseSims.addValue(docSim);
-				}
-			}
-		}
-//		System.out.println("true: " + trueSims.getMean() + " +/- " + trueSims.getVariance());
-//		System.out.println("false: " + falseSims.getMean() + " +/- " + falseSims.getVariance() + "\n");
-		return falseSims.getMean();
-	}
-	
-	
-	public static double computeTestDocSimCutoff() {
-		
-		return 0;
-	}
 	
 	public static GeneralTuple<Double, HashMap<HashSet<EventNode>, Double>> testClassifier(Classifier clf, LinkedList<GeneralTuple<Instance, List<EventNode>>> test, 
 																	 Instances train, HashMap<String, ArrayList<Double>> scores,
 																	 double beta) {
 		LOGGER.info("Testing classifier and finding optimal prediction cutoff");
-//		double tp = 0;
-//		double fp = 0;
-//		double fn = 0;
-//		double tn = 0;
+
 		ArrayList<Double> preds = new ArrayList<Double>();
 		ArrayList<Integer> labels = new ArrayList<Integer>();
 		HashMap<HashSet<EventNode>, Double> predLog = new HashMap<HashSet<EventNode>, Double>();
-//		for(List<EventNode> pair : testPairs) {
-//			Instance inst = dataMaker.evPairVector(dataWrapper, pair, Globals.LEMMATIZE, Globals.POS);
-//			inst.setDataset(train);
-//			double pred;
-//			try {
-//				pred = clf.distributionForInstance(inst)[1];
-//				preds.add(pred);
-//				labels.add((int)inst.classValue());
-//				predLog.put(new HashSet<EventNode>(pair), pred);
-//			} catch (Exception e) {
-//				e.printStackTrace();
-//			}
-//
-//		}
+
 		for(GeneralTuple<Instance, List<EventNode>> tup : test) {
 			Instance inst = tup.first;
 			List<EventNode> pair = tup.second;
@@ -400,10 +358,6 @@ public class Utils {
 				max_accuracy = accuracy;
 			}
 		}
-		System.out.println("recall: " + max_recall);
-		System.out.println("precision: " + max_precision);
-		System.out.println("accuracy: " + max_accuracy);
-		System.out.println("f1: " + max_f1);
 
 	    scores.get("clf_f1").add(max_f1);
 	    scores.get("clf_recall").add(max_recall);

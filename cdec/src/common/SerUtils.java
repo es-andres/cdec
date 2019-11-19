@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -18,21 +17,30 @@ import ecb_utils.ECBWrapper;
 import edu.stanford.nlp.pipeline.ProtobufAnnotationSerializer;
 import me.tongfei.progressbar.ProgressBar;
 
+/**
+ * Utility for serializing objects
+ * @author acrem003
+ *
+ */
 public class SerUtils {
 	private static final Logger LOGGER = Logger.getLogger(SerUtils.class.getName());
 	
+	/**
+	 * Generate a corenlp CoreDoc object for all ECB+ documents and serialize them
+	 */
 	public static void cacheSemanticParses() {
 		Globals.USED_CACHED_PARSES = false;
 		List<Integer> topics = IntStream.rangeClosed(1, 45).boxed().collect(Collectors.toList());
 	    List<File> allFiles = ECBWrapper.getFilesFromTopics(topics);
 
-		Globals.nafDocs = new HashMap<String, ECBDoc>();
 		LOGGER.info("loading all files...");
 		for(File f : ProgressBar.wrap(allFiles, "Load all files")) {
+			File serExists = Paths.get(Globals.CACHED_CORE_DOCS.toString(), f.getName() + ".ser").toFile();
+			if(serExists.exists())
+				continue;
 			ECBDoc doc = new ECBDoc(f);
 			ProtobufAnnotationSerializer ser = new ProtobufAnnotationSerializer();
 			serializeObj(ser.toProto(doc.coreDoc.annotation()), Paths.get(Globals.CACHED_CORE_DOCS.toString(), f.getName() + ".ser").toFile());
-			serializeObj(doc.sentenceToSRLNodes, Paths.get(Globals.CACHED_SRL.toString(), f.getName() + ".ser").toFile());
 		}
 
 		LOGGER.info("cache built ");
@@ -40,11 +48,16 @@ public class SerUtils {
 		
 	}
 	
+	/**
+	 * Serialize an object to a location
+	 * @param o: object to serialize
+	 * @param loc: location
+	 */
 	public static void serializeObj(Object o, File loc) {
 		try {
 			FileOutputStream fos = new FileOutputStream(loc);
 			ObjectOutputStream oos = new ObjectOutputStream(fos);
-			oos.writeObject(o); // updated with the creation of each NafDoc
+			oos.writeObject(o);
 			oos.close();
 			fos.close();
 		} catch (IOException ioe) {
@@ -52,6 +65,11 @@ public class SerUtils {
 		}
 	}
 	
+	/**
+	 * Load a previously serialized object
+	 * @param path: where the serialized object is stored
+	 * @return
+	 */
 	public static Object loadObj(File path) {
 		
 		Object obj = null;
@@ -67,11 +85,7 @@ public class SerUtils {
 			file.close();
 		}
 
-		catch (IOException ex) {
-			System.out.println(ex);
-		}
-
-		catch (ClassNotFoundException ex) {
+		catch (IOException | ClassNotFoundException ex) {
 			System.out.println(ex);
 		}
 		

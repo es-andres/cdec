@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns="http://chambers.com/corpusinfo">
+  <file name="sentence.txt">
+    <entry sid="0" file="sentence.txt">
+      <sentence>A bomb exploded Friday at a West Coast Bank branch in Woodburn , killing a Woodburn police officer and an Oregon State Police bomb squad technician , and critically injuring the Woodburn police chief .</sentence>
+      <tokens>
+        <t>"" "A" ""</t>
+        <t>"" "bomb" ""</t>
+        <t>"" "exploded" ""</t>
+        <t>"" "Friday" ""</t>
+        <t>"" "at" ""</t>
+        <t>"" "a" ""</t>
+        <t>"" "West" ""</t>
+        <t>"" "Coast" ""</t>
+        <t>"" "Bank" ""</t>
+        <t>"" "branch" ""</t>
+        <t>"" "in" ""</t>
+        <t>"" "Woodburn" ""</t>
+        <t>"" "," ""</t>
+        <t>"" "killing" ""</t>
+        <t>"" "a" ""</t>
+        <t>"" "Woodburn" ""</t>
+        <t>"" "police" ""</t>
+        <t>"" "officer" ""</t>
+        <t>"" "and" ""</t>
+        <t>"" "an" ""</t>
+        <t>"" "Oregon" ""</t>
+        <t>"" "State" ""</t>
+        <t>"" "Police" ""</t>
+        <t>"" "bomb" ""</t>
+        <t>"" "squad" ""</t>
+        <t>"" "technician" ""</t>
+        <t>"" "," ""</t>
+        <t>"" "and" ""</t>
+        <t>"" "critically" ""</t>
+        <t>"" "injuring" ""</t>
+        <t>"" "the" ""</t>
+        <t>"" "Woodburn" ""</t>
+        <t>"" "police" ""</t>
+        <t>"" "chief" ""</t>
+        <t>"" "." ""</t>
+      </tokens>
+      <parse>(ROOT (S (NP (DT A) (NN bomb)) (VP (VBD exploded) (NP (NNP Friday)) (PP (IN at) (NP (NP (DT a) (NNP West) (NNP Coast) (NNP Bank) (NN branch)) (PP (IN in) (NP (NNP Woodburn))))) (, ,) (S (VP (VP (VBG killing) (NP (NP (DT a) (NNP Woodburn) (NN police) (NN officer)) (CC and) (NP (DT an) (NNP Oregon) (NNP State) (NNP Police) (NN bomb) (NN squad) (NN technician)))) (, ,) (CC and) (VP (VBG critically) (S (VP (VBG injuring) (NP (DT the) (NNP Woodburn) (NN police) (NN chief)))))))) (. .)))</parse>
+      <deps>det(bomb-2, A-1)
+nsubj(exploded-3, bomb-2)
+root(ROOT-0, exploded-3)
+tmod(exploded-3, Friday-4)
+det(branch-10, a-6)
+nn(branch-10, West-7)
+nn(branch-10, Coast-8)
+nn(branch-10, Bank-9)
+prep_at(exploded-3, branch-10)
+prep_in(branch-10, Woodburn-12)
+dep(exploded-3, killing-14)
+det(officer-18, a-15)
+nn(officer-18, Woodburn-16)
+nn(officer-18, police-17)
+dobj(killing-14, officer-18)
+det(technician-26, an-20)
+nn(technician-26, Oregon-21)
+nn(technician-26, State-22)
+nn(technician-26, Police-23)
+nn(technician-26, bomb-24)
+nn(technician-26, squad-25)
+dobj(killing-14, technician-26)
+conj_and(officer-18, technician-26)
+dep(exploded-3, critically-29)
+conj_and(killing-14, critically-29)
+xcomp(critically-29, injuring-30)
+det(chief-34, the-31)
+nn(chief-34, Woodburn-32)
+nn(chief-34, police-33)
+dobj(injuring-30, chief-34)</deps>
+      <events>
+        <event id="e1" eiid="ei1" offset="3" string="exploded" tense="PAST" aspect="NONE" class="OCCURRENCE" polarity="POS" modality="" happen="" lowerBoundDuration="" upperBoundDuration="" />
+        <event id="e2" eiid="ei2" offset="14" string="killing" tense="PRESPART" aspect="NONE" class="OCCURRENCE" polarity="POS" modality="" happen="" lowerBoundDuration="" upperBoundDuration="" />
+        <event id="e3" eiid="ei3" offset="29" string="critically" tense="PRESPART" aspect="NONE" class="OCCURRENCE" polarity="POS" modality="" happen="" lowerBoundDuration="" upperBoundDuration="" />
+        <event id="e4" eiid="ei4" offset="30" string="injuring" tense="PRESPART" aspect="NONE" class="OCCURRENCE" polarity="POS" modality="" happen="" lowerBoundDuration="" upperBoundDuration="" />
+      </events>
+      <timexes>
+        <timex tid="t1" text="Friday" offset="4" length="1" type="DATE" value="XXXX-WXX-5" temporalFunction="false" />
+      </timexes>
+    </entry>
+    <tlink event1="ei1" event2="t1" relation="IS_INCLUDED" closed="false" origin="AdjacentVerbTimex" type="et" />
+    <tlink event1="ei2" event2="ei3" relation="VAGUE" closed="false" origin="XCompDepSieve" type="ee" />
+    <tlink event1="ei3" event2="ei4" relation="SIMULTANEOUS" closed="false" origin="XCompDepSieve" type="ee" />
+    <tlink event1="ei2" event2="t1" relation="BEFORE" closed="false" origin="MLEventTimeSameSent" type="et" />
+    <tlink event1="ei3" event2="t1" relation="VAGUE" closed="false" origin="MLEventTimeSameSent" type="et" />
+    <tlink event1="ei4" event2="t1" relation="VAGUE" closed="false" origin="MLEventTimeSameSent" type="et" />
+    <tlink event1="ei1" event2="ei2" relation="AFTER" closed="true" origin="MLEventTimeSameSent" type="ee" />
+    <tlink event1="ei1" event2="ei3" relation="VAGUE" closed="false" origin="MLEventEventDominates" type="ee" />
+    <tlink event1="ei1" event2="ei4" relation="VAGUE" closed="false" origin="MLEventEventDominates" type="ee" />
+    <tlink event1="ei2" event2="ei4" relation="VAGUE" closed="false" origin="MLEventEventSameSent" type="ee" />
+  </file>
+</root>
+

@@ -1,4 +1,4 @@
-package common;
+package result_calculation;
 
 
 import java.io.File;
@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.logging.Logger;
 
+import common.Globals;
 import ecb_utils.ECBDoc;
 import ecb_utils.ECBWrapper;
 import ecb_utils.EventNode;
@@ -74,7 +75,7 @@ public class ConllFile {
 					}
 				}
 				//40_4ecb	0	6	update	-	-	-	-	-	-	-	-	(18091688366575792)
-				String fKey = f.getName().replace("_aug.en.naf", "");
+				String fKey = f.getName().replace("_aug.xml", "");
 				String word = tok.get("text");
 				String line = fKey + "\t" + "0" + "\t" + t_id + "\t" + word + "\t" + label;
 				conllDoc.append(line + "\n");
