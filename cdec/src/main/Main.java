@@ -16,15 +16,16 @@ import com.google.common.base.Functions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 
-import common.ConllFile;
 import common.GeneralTuple;
 import common.Globals;
-import common.PerformanceMetric;
+import common.SerUtils;
 import common.Utils;
 import ecb_utils.ECBWrapper;
 import ecb_utils.EventNode;
 import event_clustering.CustomCluster;
 import feature_extraction.EvPairDataset;
+import result_calculation.ConllFile;
+import result_calculation.PerformanceMetric;
 
 
 @SuppressWarnings("unused")
@@ -36,25 +37,26 @@ public class Main {
 	{
 //		for(int k : Arrays.asList(5, 10)) {
 //			int offset = k == 5 ? 0 : 10;
-			for(int r = 1; r < 11; r++) {
-				int run = r;
+//			for(int r = 1; r < 11; r++) {
+//				int run = r;
 		int k = 5;
 		double beta = 0.55;
 		double damping = 0.5;
 		String n_clusts = "";
-		String logMessage = String.format("(%s-cv.%s) FINAL: gold doc., balanced test, shuffle %s-cv, beta=%s", k, run, k,beta);
-//		String logMessage = String.format("testing doc cluster, no reps 36-45; beta=%s", "testing");
-		String experiment_id = String.format("%s-cv.%s", k, run);
-//		String experiment_id = "x";
-		boolean useGoldDocClusters = true;
+//		String logMessage = String.format("(%s-cv.%s) testing aug: gold doc., balanced test, shuffle %s-cv, beta=%s", k, run, k,beta);
+		String logMessage = String.format("testing aug, no reps 36-45; beta=%s", "testing");
+//		String experiment_id = String.format("%s-cv.%s", k, run);
+		String experiment_id = "x";
+		boolean useGoldDocClusters = false;
 		
 //		SerUtils.cacheSemanticParses();
+//		System.exit(0);
 		
 		/*
 		 * [0] Prepare cross validation folds
 		 */
 		// make list of topics for CV fold generation
-		List<Integer> topics = IntStream.rangeClosed(1,45).boxed().collect(Collectors.toList());
+		List<Integer> topics = IntStream.rangeClosed(1,5).boxed().collect(Collectors.toList());
 		topics.removeAll(Globals.DEAD_TOPICS); // some topics numbers don't exist in ECB+
 		ECBWrapper dataWrapper = new ECBWrapper(topics); // loads all documents, including corenlp parses
 
@@ -120,11 +122,10 @@ public class Main {
 		    	testFNameToDocClustMap = Utils.fNameToPredictedDocCluster(testPredDocClusters); // predicted doc clusters
 //			Utils.fNameToGoldDocCluster(testTopics, dataWrapper); // gold doc clusters
 
-			boolean filterTest = false;
-			boolean balancedTest = true;
+			boolean balancedTest = false;
 		    double evDistCutoff = 1;//Utils.computeTrainEvDistCutoff(dataWrapper);
 		    double docSimCutoff = 0;//Utils.computeTrainDocSimCutoff(dataWrapper);
-			List<List<EventNode>> testPairs = dataWrapper.buildTestPairs(testTopics, testFNameToDocClustMap, evDistCutoff, docSimCutoff, filterTest, balancedTest);
+			List<List<EventNode>> testPairs = dataWrapper.buildTestPairs(testTopics, testFNameToDocClustMap, evDistCutoff, docSimCutoff, balancedTest);
 			
 		    /*
 		     * 2.3 log number of true/false in filtered dataset using doc clusters and gold dataset
@@ -132,10 +133,7 @@ public class Main {
 //			dataWrapper.getGoldEvPairDistribution(testTopics) // gold using gold clusters
 //			dataWrapper.buildTestPairs(testTopics, fNameToDocClustMap, evDistCutoff, docSimCutoff, false) // gold using model clusters
 			// with doc clustering
-		    HashMap<String, Double> labelDist = ECBWrapper.getLabelDistribution(dataWrapper.buildTestPairs(testTopics, testFNameToDocClustMap, evDistCutoff, docSimCutoff, false, balancedTest));
-		    scores.get("unfilt_true_pairs").add(labelDist.get("true"));
-		    scores.get("unfilt_false_pairs").add(labelDist.get("false"));
-		    System.out.println("unfilt: " + labelDist);
+		    HashMap<String, Double> labelDist = ECBWrapper.getLabelDistribution(dataWrapper.buildTestPairs(testTopics, testFNameToDocClustMap, evDistCutoff, docSimCutoff,  balancedTest));
 		    // without doc clustering
 		    HashMap<String, String> testFNameToGoldDocClust = Utils.fNameToGoldDocCluster(testTopics, dataWrapper);
 		    labelDist = ECBWrapper.getLabelDistribution(dataWrapper.getGoldDocClusteringEvPairs(testTopics, testFNameToGoldDocClust)); // did not check for equality, bug here
@@ -245,7 +243,7 @@ public class Main {
 		 * [5] Store performance results in .csv
 		 */
 		Utils.logResults(scores, logMessage, experiment_id);
-			} // cv rounds
+//			} // cv rounds
 //		} // cv rounds
 
 	    

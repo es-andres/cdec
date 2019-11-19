@@ -38,7 +38,7 @@ public class ElkiCluster {
 		String fName = "";
 		// topic
 		fName += ((int)arr[0]) + "_" + ((int)arr[1]);
-		fName += (arr[2] == 1.0) ? "ecbplus_aug.en.naf" : "ecb_aug.en.naf";
+		fName += (arr[2] == 1.0) ? "ecbplus_aug.xml" : "ecb_aug.xml";
 		File file = Paths.get(Globals.ECBPLUS_DIR.toString(), fName).toFile();
 		EventNode ev = new EventNode(file, String.valueOf(((int)arr[3])), ev_id);
 		
@@ -75,7 +75,8 @@ public class ElkiCluster {
 		return data;
 	} 
 	public ArrayList<HashSet<EventNode>> init(List<EventNode> evs, Classifier clf, EvPairDataset vectorizer, ECBWrapper dataWrapper) {
-		// put this in main to get it to work
+		// put this in main to get it to work (deleted getEventSet, just implement it to get all events
+		// if you want to use this)
 //		Elki elki = new Elki();
 //		List<EventNode> evs = dataWrapper.getEventSet(testPairs, testDocClusters.get(c_id).split(" "));
 //		cdecChains.addAll(elki.init(evs, clf, dataMaker, dataWrapper));

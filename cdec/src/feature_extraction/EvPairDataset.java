@@ -178,9 +178,9 @@ public class EvPairDataset {
 	public static List<IndexedWord> mainEvText(EventNode ev, ECBDoc doc){
 		List<IndexedWord> text = new LinkedList<IndexedWord>();
 
-		for(String level : doc.mIdToCoreEvText.get(ev.m_id).keySet()) {
-			for(int tok_idx : doc.mIdToCoreEvText.get(ev.m_id).get(level).navigableKeySet())
-				text.add(doc.mIdToCoreEvText.get(ev.m_id).get(level).get(tok_idx));
+		for(String level : doc.mIdToEventText.get(ev.m_id).keySet()) {
+			for(int tok_idx : doc.mIdToEventText.get(ev.m_id).get(level).navigableKeySet())
+				text.add(doc.mIdToEventText.get(ev.m_id).get(level).get(tok_idx));
 		}
 		
 		return text;
@@ -194,7 +194,7 @@ public class EvPairDataset {
 	 * @return
 	 */
 	public static CoreSentence evMainSentence(EventNode ev, ECBDoc doc){
-		int s_id = doc.mIdToCoreEvText.get(ev.m_id).get("trigger").firstEntry().getValue().sentIndex();
+		int s_id = doc.mIdToEventText.get(ev.m_id).get("trigger").firstEntry().getValue().sentIndex();
 
 		return doc.coreDoc.sentences().get(s_id);
 	}

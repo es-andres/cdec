@@ -16,35 +16,14 @@ import java.util.Random;
 import java.util.Set;
 import java.util.logging.Logger;
 
-import org.apache.commons.math3.ml.distance.DistanceMeasure;
-import org.apache.commons.math3.ml.distance.EuclideanDistance;
-import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
-import org.deeplearning4j.bagofwords.vectorizer.TfidfVectorizer;
-
-import org.deeplearning4j.text.sentenceiterator.CollectionSentenceIterator;
-import org.deeplearning4j.text.sentenceiterator.SentenceIterator;
-import org.deeplearning4j.text.tokenization.tokenizer.DefaultTokenizer;
-import org.deeplearning4j.text.tokenization.tokenizer.Tokenizer;
-import org.deeplearning4j.text.tokenization.tokenizer.preprocessor.CommonPreprocessor;
-import org.deeplearning4j.text.tokenization.tokenizerfactory.DefaultTokenizerFactory;
-import org.deeplearning4j.text.tokenization.tokenizerfactory.NGramTokenizerFactory;
-
-import org.nd4j.linalg.cpu.nativecpu.NDArray;
-import org.nd4j.linalg.ops.transforms.Transforms;
-
 import com.google.common.collect.Sets;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableGraph;
-import com.google.common.math.Quantiles;
 
-import common.GeneralTuple;
 import common.Globals;
-import edu.stanford.nlp.ling.IndexedWord;
-import edu.stanford.nlp.pipeline.CoreSentence;
-import feature_extraction.EvPairDataset;
-import feature_extraction.TFIDF;
+
 import me.tongfei.progressbar.ProgressBar;
 
 public class ECBWrapper {
@@ -61,7 +40,6 @@ public class ECBWrapper {
 	public final List<Integer> DEAD_TOPICS = Arrays.asList(15, 17);
 	public HashMap<String, ECBDoc> docs;
 	public List<File> files;
-	public TfidfVectorizer tfidf;
 	public HashSet<EventNode> missingTestEvs;
 	
 	public ECBWrapper(List<Integer> topics) {
@@ -72,43 +50,6 @@ public class ECBWrapper {
 		
 		this.files = getFilesFromTopics(topics);
 		this.loadFiles(this.files);
-		this.tfidf = this.doTFIDF();
-	}
-	private TfidfVectorizer doTFIDF() {
-		List<String> docText = new LinkedList<String>();
-		for(File f : this.files) {
-			docText.add(this.docs.get(f.getName()).getDocText());
-		}
-		SentenceIterator docs = new CollectionSentenceIterator(docText);
-		CommonPreprocessor tokProc = new CommonPreprocessor();
-		Tokenizer tokenize = new DefaultTokenizer(" ");
-		tokenize.setTokenPreProcessor(tokProc);
-		DefaultTokenizerFactory fact = new DefaultTokenizerFactory();
-		fact.setTokenPreProcessor(tokProc);
-		NGramTokenizerFactory factory = new NGramTokenizerFactory(fact, 1, 1);
-	
-        TfidfVectorizer vectorizer = new TfidfVectorizer.Builder()
-                .setMinWordFrequency(1)
-                .setStopWords(new ArrayList<String>())
-                .setTokenizerFactory(factory)
-                .setIterator(docs)
-//                .labels(labels)
-//                .cleanup(true)
-                .build();
-        
-        vectorizer.fit();
-        
-        for(File f : this.files) {
-        	float[] vec = new float[vectorizer.getVocabCache().tokens().size()];
-        	String[] words = this.docs.get(f.getName()).getDocText().split(" ");
-        	for(String word : words) {
-        		int count = vectorizer.getVocabCache().wordFrequency(word);
-        		vec[vectorizer.getVocabCache().indexOf(word)] = (float)vectorizer.tfidfWord(word, count, words.length);
-        	}
-
-        	this.docs.get(f.getName()).tfidfVec = new NDArray(vec);
-        }
-        return vectorizer;
 	}
 	
 	public static boolean coferer(ECBDoc doc1, ECBDoc doc2) {
@@ -120,31 +61,11 @@ public class ECBWrapper {
 		else
 			return false;
 	}
+	
 	public ECBDoc getDoc(File f) {
 		return this.docs.get(f.getName());
 	}
-//	public List<EventNode> getEventSet(List<List<EventNode>> evs, String[] f) {
-////		HashSet<String> files = new HashSet<String>(Arrays.asList(f));
-////		HashSet<EventNode> evSet = new HashSet<EventNode>();
-////		for(List<EventNode> pair : evs) {
-////			if(files.contains(pair.get(0).file.getName()) && files.contains(pair.get(0).file.getName())) {
-////				evSet.add(pair.get(0));
-////				evSet.add(pair.get(1));
-////			}
-////		}
-//		HashSet<Integer> tops = new HashSet<Integer>();
-//		for(String fName : f) {
-//			tops.add(Integer.parseInt(fName.split("_")[0]));
-//		}
-//		List<Integer> topics = new LinkedList<Integer>(tops);
-//			
-//		List<List<EventNode>> evPairs = this.buildBalancedEvPairSet(topics, this.trainCorefGraph);
-//		HashSet<EventNode> events = new HashSet<EventNode>();
-//		for(List<EventNode> pair : evPairs)
-//			events.addAll(pair);
-//		//return new ArrayList<EventNode>(evSet)
-//		return new ArrayList<EventNode>(events);
-//	}
+	
 	/**
 	 * 
 	 * @param topics: list of integers representing an ECB+ topic cluster
@@ -254,7 +175,7 @@ public class ECBWrapper {
 	
 	// not true/false balanced
 	public List<List<EventNode>> buildTestPairs(List<Integer> topics, HashMap<String, String> fNameToClustMap, 
-												double evDistCutoff, double docSimCutoff, boolean filter, boolean balanced) {
+												double evDistCutoff, double docSimCutoff, boolean balanced) {
 		LOGGER.info("Building test set");
 		this.testTopics = topics;
 		this.testCorefGraph = this.buildCorefGraph(topics, fNameToClustMap);
@@ -266,132 +187,19 @@ public class ECBWrapper {
 			List<List<EventNode>> evs = new LinkedList<List<EventNode>>();
 			HashSet<EventNode> missingEvs = new HashSet<EventNode>(this.testCorefGraph.nodes());
 			Set<Set<EventNode>> pairs = Sets.combinations(this.testCorefGraph.nodes(), 2);
-			HashMap<HashSet<String>, Double> filePairToCosSim = null;
-			HashMap<String, Double> clusterIdToCutoff = null;
-			if(filter) {
-				GeneralTuple<HashMap<HashSet<String>, Double>, HashMap<String, Double>>  t = fitTfidfPerDocCluster(fNameToClustMap);
-				filePairToCosSim = t.first;
-				clusterIdToCutoff = t.second;
-			}
 			
 			for(Set<EventNode> pair : pairs) {
 				List<EventNode> pairList = new LinkedList<EventNode>(pair);
 				EventNode ev1 = pairList.get(0);
 				EventNode ev2 = pairList.get(1);
 				if(fNameToClustMap.get(ev1.file.getName()).equals(fNameToClustMap.get(ev2.file.getName()))) {
-					if(filter) {
-						double docSim = 1;
-						if(!ev1.file.getName().equals(ev2.file.getName()))
-							docSim = filePairToCosSim.get(new HashSet<String>(Arrays.asList(ev1.file.getName(), ev2.file.getName())));
-						
-						double evDist = this.evTextDist(ev1, ev2);
-						if(docSim > clusterIdToCutoff.get(fNameToClustMap.get(ev1.file.getName()))
-								&& evDist < evDistCutoff) {
-							missingEvs.removeAll(Arrays.asList(ev1, ev2));
-							evs.add(Arrays.asList(ev1, ev2));
-						}
-					}
-					else {
-						missingEvs.removeAll(Arrays.asList(ev1, ev2));
-						evs.add(new LinkedList<EventNode>(pair));
-					}
+					missingEvs.removeAll(Arrays.asList(ev1, ev2));
+					evs.add(new LinkedList<EventNode>(pair));
 				}
 			}
 			this.missingTestEvs = missingEvs;
 			return evs;
 		}
-	}
-	
-	private GeneralTuple<HashMap<HashSet<String>, Double>, HashMap<String, Double>> 
-							fitTfidfPerDocCluster(HashMap<String, String> fNameToClustMap) {
-		HashMap<String, Double> clusterIdToCutoff = new HashMap<String, Double>();
-		HashMap<HashSet<String>, Double> filePairToCosSim = new HashMap<HashSet<String>, Double>();
-		HashMap<String, NDArray> fNameToTfidfVec = new HashMap<String, NDArray>();
-		HashMap<String, HashSet<String>> clustIdToFiles = new HashMap<String, HashSet<String>>();
-		
-		/*
-		 * inver fname, clustid map
-		 */
-		for(String fName: fNameToClustMap.keySet()) {
-			String clustId = fNameToClustMap.get(fName);
-			if(!clustIdToFiles.containsKey(clustId))
-				clustIdToFiles.put(clustId, new HashSet<String>());
-			clustIdToFiles.get(clustId).add(fName);
-		}
-		
-		/*
-		 * fit a tfidf model for each cluster
-		 */
-		for(String clustId : clustIdToFiles.keySet()) {
-			List<String> docText = new LinkedList<String>();
-			for(String fName : clustIdToFiles.get(clustId))
-				docText.add(this.docs.get(fName).getDocText());
-		
-			SentenceIterator docs = new CollectionSentenceIterator(docText);
-			CommonPreprocessor tokProc = new CommonPreprocessor();
-			Tokenizer tokenize = new DefaultTokenizer(" ");
-			tokenize.setTokenPreProcessor(tokProc);
-			DefaultTokenizerFactory fact = new DefaultTokenizerFactory();
-			fact.setTokenPreProcessor(tokProc);
-			NGramTokenizerFactory factory = new NGramTokenizerFactory(fact, 1, 1);
-		
-	        TfidfVectorizer vectorizer = new TfidfVectorizer.Builder()
-	                .setMinWordFrequency(1)
-	                .setStopWords(new ArrayList<String>())
-	                .setTokenizerFactory(factory)
-	                .setIterator(docs)
-	                .build();
-	        
-	        vectorizer.fit();
-	        
-	        /*
-	         * get tfidf vector for each document in this cluster
-	         */
-	        for(String fName : clustIdToFiles.get(clustId)) {
-	        	System.out.println(fName);
-	        	float[] vec = new float[vectorizer.getVocabCache().tokens().size()];
-	        	String[] words = this.docs.get(fName).getDocText().split(" ");
-	        	for(String word : words) {
-	        		int count = vectorizer.getVocabCache().wordFrequency(word);
-	        		vec[vectorizer.getVocabCache().indexOf(word)] = (float)vectorizer.tfidfWord(word, count, words.length);
-	        	}
-
-	        	fNameToTfidfVec.put(fName, new NDArray(vec));
-	        }
-	        
-	        /*
-	         * calculate pairwise cos sim 
-	         */
-	        SummaryStatistics cosSims = new SummaryStatistics();
-	        LinkedList<Double> cosList = new LinkedList<Double>();
-	        for(Set<String> pair : Sets.combinations(clustIdToFiles.get(clustId), 2)) {
-	        	List<String> files = new LinkedList<String>(pair);
-	        	String f1 = files.get(0);
-	        	String f2 = files.get(1);
-	        	double sim = Transforms.cosineSim(fNameToTfidfVec.get(f1), fNameToTfidfVec.get(f2));
-	        	cosSims.addValue(sim);
-	        	cosList.add(sim);
-	        	filePairToCosSim.put(new HashSet<String>(pair), sim);
-	        }
-	        System.out.println(clustId + "(sum) : " + (cosSims.getMean()- 2*cosSims.getVariance()));
-	        double q = Quantiles.percentiles().index(25).compute(cosList);
-	        System.out.println(clustId + "(q) : " + q);
-	        clusterIdToCutoff.put(clustId, q);
-		}
-		return new GeneralTuple<HashMap<HashSet<String>, Double>, HashMap<String, Double>>(filePairToCosSim, clusterIdToCutoff);
-		
-	}
-	
-	private double evTextDist(EventNode ev1, EventNode ev2) {
-		
-		List<IndexedWord> ev1Text = EvPairDataset.mainEvText(ev1, this.docs.get(ev1.file.getName()));
-		List<IndexedWord> ev2Text = EvPairDataset.mainEvText(ev2, this.docs.get(ev2.file.getName()));
-		List<CoreSentence> ev1Sentences = Arrays.asList(EvPairDataset.evMainSentence(ev1, this.docs.get(ev1.file.getName())));
-		List<CoreSentence> ev2Sentences = Arrays.asList(EvPairDataset.evMainSentence(ev2, this.docs.get(ev2.file.getName())));
-		List<CoreSentence> sentenceCorpus = EvPairDataset.makeSentCorpus(ev1Sentences, ev2Sentences, ev1.file.equals(ev2.file));
-		TFIDF comparer = new TFIDF(sentenceCorpus, Globals.LEMMATIZE, Globals.POS, 1);
-		DistanceMeasure dist = new EuclideanDistance();
-		return dist.compute(comparer.makeEvVector(ev1Text, ev1Sentences), comparer.makeEvVector(ev2Text, ev2Sentences));
 	}
 	
 	
