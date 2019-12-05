@@ -5,26 +5,27 @@ import subprocess
 import sys
 import copy
 
-annotated = dict()
+cleaned = dict()
 with open(vars.CLEAN_SENT_PATH) as f:
     for line in f.readlines()[1:]:
         line = line.split(',')
         f_name = line[0] + '_' + line[1]
         f_name = str(f_name + '_aug.xml')
-        if f_name not in annotated:
-            annotated[f_name] = []
-        annotated[f_name].append(line[2].replace('\n', ''))
+        if f_name not in cleaned:
+            cleaned[f_name] = []
+        cleaned[f_name].append(line[2].replace('\n', ''))
 total_sents = 0
-for f in annotated:
-    total_sents += len(annotated[f])
-print(total_sents, 'total annotated sentences in', len(annotated), 'files')
+for f in cleaned:
+    total_sents += len(cleaned[f])
+print(total_sents, 'total annotated sentences in', len(cleaned), 'files')
 
 
 class ECBDocWrapper:
 
     def __init__(self, path):
         self.path = path
-        self.aug_fname = os.path.basename(self.path).replace('.xml', '_aug.xml')
+        self.fname = os.path.basename(self.path)
+        self.aug_fname = self.fname.replace('.xml', '_aug.xml') if 'aug' not in self.fname else self.fname
         self.tree = ET.parse(self.path)
         self.root = self.tree.getroot()
 
@@ -32,7 +33,7 @@ class ECBDocWrapper:
         self.root.set('doc_name', self.root.attrib['doc_name'].replace('.xml', '_aug.xml'))
         aug_toks = ET.SubElement(self.root, "Augmented_Tokens")
         pred_evs = dict()
-        if self.aug_fname in annotated:
+        if self.aug_fname in cleaned:
             pred_evs = self.predict_events()
         for tok in self.get_all_tokens():
             aug_tok = copy.deepcopy(tok)
@@ -52,6 +53,45 @@ class ECBDocWrapper:
 
         self.tree.write(os.path.join(vars.ECB_AUG_DIR, self.root.attrib['doc_name']))
 
+    def calculate_ev_pred_performance(self):
+        aug_toks = self.root.find('Augmented_Tokens')
+        res = {'tp': 0,
+               'fp': 0,
+               'tn': 0,
+               'fn': 0}
+        if self.aug_fname not in cleaned:
+            return res
+        for tok in aug_toks:
+            if tok.attrib['sentence'] in cleaned[self.aug_fname]:
+                pred = tok.attrib['pred_ev'] != ''
+                label = tok.attrib['ev_id'].startswith('ACT')
+                if pred and label:
+                    res['tp'] += 1
+                if pred and not label:
+                    res['fp'] += 1
+                if not pred and not label:
+                    res['tn'] += 1
+                if not pred and label:
+                    res['fn'] += 1
+        return res
+
+    def count_evs_and_chains(self):
+        num_evs = 0
+        chains = dict()
+        aug_toks = self.root.find('Augmented_Tokens')
+        if self.aug_fname not in cleaned:
+            return num_evs, chains
+        for tok in aug_toks:
+            if tok.attrib['sentence'] in cleaned[self.aug_fname]:
+                if tok.attrib['ev_id'].startswith('ACT'):
+                    num_evs += 1
+                    if tok.attrib['ev_id'] not in chains:
+                        chains[tok.attrib['ev_id']] = []
+                    chains[tok.attrib['ev_id']] = list(set(chains[tok.attrib['ev_id']] + [self.fname + '_' + tok.attrib['m_id']]))
+        return num_evs, chains
+
+
+
     def predict_events(self):
         s_id_to_offsets = dict()
         sentences = dict()
@@ -60,7 +100,7 @@ class ECBDocWrapper:
                 sentences[tok.attrib['sentence']] = []
             sentences[tok.attrib['sentence']].append(tok.text)
         for s_id in sentences:
-            if s_id not in annotated[self.aug_fname]:
+            if s_id not in cleaned[self.aug_fname]:
                 continue
             txt = ' '.join(sentences[s_id])
             with open(vars.TXT_PATH, "w") as text_file:
