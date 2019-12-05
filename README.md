@@ -1,9 +1,7 @@
 # Cross-Document Event Coreference (CDEC)
 
 Code to perform CDEC, which is the task of clustering event mentions in a collection
-of documents that refer to the same real-world event. Depends externally on Stanford CoreNLP
-and pre-trained Fasttext vectors. Configured to do CDEC on the ECB+ corpus using only event trigger annotations. 
-Matches or slightly beats state of the art on trigger-only CDEC with a significantly simpler model.
+of documents that refer to the same real-world event. Configured to do CDEC on the ECB+ corpus using only event trigger annotations. Matches or slightly beats state of the art on trigger-only CDEC with a significantly simpler model.
 
 ## What is this for?
 Suppose some event takes place and journalists
@@ -11,7 +9,7 @@ inform the public. The reports refer to the same
 event but inevitably vary in their language, tone
 and contextualization. What can we learn from
 the variations? Of course, we must first group together all reports of the same event before we can
-realize any analysis. Generating these event groupings automatically is called Cross Document Event Coreference (CDEC). It is an important component not only for this application, but also for tasks
+realize any analysis. Generating these event groupings automatically is called Cross-Document Event Coreference (CDEC). It is an important component not only for this application, but also for tasks
 such as information retrieval and question answering. CDEC allows us to augment the information
 around an event mention in a single document with
 information from all of its mentions across many
