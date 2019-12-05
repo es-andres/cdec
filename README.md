@@ -20,7 +20,7 @@ told.
 
 ## Prerequisites
 ### Data
-[ECB+](http://www.newsreader-project.eu/results/data/the-ecb-corpus/).
+[ECB+](http://www.newsreader-project.eu/results/data/the-ecb-corpus/)
 ### External Software
 - Download pre-trained Fasttext vectors [here](https://fasttext.cc/docs/en/crawl-vectors.html) -- select the English bin file.
 - [Stanford CoreNLP](https://stanfordnlp.github.io/CoreNLP/download.html) 3.8.0
