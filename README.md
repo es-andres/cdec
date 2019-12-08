@@ -77,4 +77,4 @@ told.
   java -cp target/CDEC-0.0.1-SNAPSHOT-jar-with-dependencies.jar main.Main
   ```
   
-7. Remember to exit the CoreNLP server and the word embedding server once you are done.
+7. Remember to shut down the CoreNLP server and the word embedding server once you are done.
