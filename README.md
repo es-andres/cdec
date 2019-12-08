@@ -41,8 +41,8 @@ told.
   cd perl_assets
   git clone https://github.com/conll/reference-coreference-scorers
   ```
-2. Open the root directory in a terminal and type the following commands to generate the ``pipenv`` environments for the required python scripts:
 
+2. Open the root directory in a terminal and type the following commands to generate the ``pipenv`` environments for the required python scripts:
   ```bash
   cd python_assets
   cd ecb_augmenter
@@ -50,14 +50,15 @@ told.
   cd ../word_vecs
   pipenv install
   ```
-3. Prepare the ECB+ corpus:
 
+3. Prepare the ECB+ corpus:
     - First, open your download of the ECB+ corpus and place the extracted ECB+.zip directory and the file "ECBplus_coreference_sentences.csv" in the ``CDEC/data`` directory.
     - "Augment" the ECB+ corpus (this makes it more convenient to parse):
     ```bash
     cd ecb_augmenter
     pipenv run python main.py
     ```
+
 4. Open the file "external_paths.json" in the root directory and add the paths to your installation of Stanford CoreNLP and the Fasstext vectors.
 
 5. Start the word embedding server:
@@ -68,15 +69,12 @@ told.
   ```
 
 6. Run the main java project:
-
     - This will run random 5-fold cross validation and log the results to an automatically created folder at  ``data/results``.
+    - If you wish to compile the code from source, you may do so using maven and the pom.xml file.
   ```bash
   cd cdec
   mvn clean compile assembly:single // this generates a .jar file with all necessary dependencies
   java -cp target/CDEC-0.0.1-SNAPSHOT-jar-with-dependencies.jar main.Main
   ```
-
-
-  If you wish to compile the code from source, use maven to package the pom.xml file.
-
+  
 7. Remember to exit the CoreNLP server and the word embedding server once you are done.
