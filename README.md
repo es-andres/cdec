@@ -52,8 +52,8 @@ told.
   ```
 3. Prepare the ECB+ corpus:
 
-  - First, open your download of the ECB+ corpus and place the extracted ECB+.zip directory and the file "ECBplus_coreference_sentences.csv" in the ``CDEC/data`` directory.
-  - "Augment" the ECB+ corpus (this makes it more convenient to parse):
+    - First, open your download of the ECB+ corpus and place the extracted ECB+.zip directory and the file "ECBplus_coreference_sentences.csv" in the ``CDEC/data`` directory.
+    - "Augment" the ECB+ corpus (this makes it more convenient to parse):
     ```bash
     cd ecb_augmenter
     pipenv run python main.py
@@ -61,18 +61,21 @@ told.
 4. Open the file "external_paths.json" in the root directory and add the paths to your installation of Stanford CoreNLP and the Fasstext vectors.
 
 5. Start the word embedding server:
+    - When the server is finished loading your terminal will display a message with the server's port.
   ```bash
   cd word_vecs
   pipenv run python main.py
   ```
-  When the server is finished loading your terminal will display a message with the server's port.
 
 6. Run the main java project:
+
+    - This will run random 5-fold cross validation and log the results to an automatically created folder at  ``data/results``.
   ```bash
   cd cdec
+  mvn clean compile assembly:single // this generates a .jar file with all necessary dependencies
   java -cp target/CDEC-0.0.1-SNAPSHOT-jar-with-dependencies.jar main.Main
   ```
-  This will run random 5-fold cross validation and log the results to an automatically created folder at the same level of the root directory ``data/results``.
+
 
   If you wish to compile the code from source, use maven to package the pom.xml file.
 
