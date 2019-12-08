@@ -23,7 +23,7 @@ public class Globals {
 	public static final Path CACHED_CORE_DOCS = Paths.get(ROOT_DIR.toString(), "data", "cached_core_docs");
 	public static final String W2V_SERVER = "http://localhost:8000";
 	public static final String CORE_NLP_SERVER = "http://localhost:9000";
-	public static final Path EXTERNAL_PATHS = Paths.get(ROOT_DIR.toString(), "external_paths.json");
+	public static final Path EXTERNAL_PATHS = Paths.get(ROOT_DIR.toString(), "data", "external_paths.json");
 	public static final String DELIM = "DELIM";
 	
 	/*
