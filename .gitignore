@@ -9,7 +9,6 @@ cdec/conll_output/*
 cdec/cache/*
 cdec/misc_notes/*
 cdec/target/*
-!cdec/target/*.jar
 cdec/results/*
 cdec/trained_models/*
 cdec/ignore.txt
