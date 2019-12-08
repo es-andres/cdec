@@ -3,7 +3,7 @@
 *.pyc
 dwords.p
 data/*
-!data/.keep
+!data/external_paths.json
 cdec/bin/*
 cdec/conll_output/*
 cdec/cache/*
