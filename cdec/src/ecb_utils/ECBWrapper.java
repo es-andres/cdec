@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -22,6 +21,7 @@ import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableGraph;
 
+import common.GeneralTuple;
 import common.Globals;
 
 import me.tongfei.progressbar.ProgressBar;
@@ -33,17 +33,16 @@ public class ECBWrapper {
 	public MutableGraph<EventNode> testCorefGraph;
 	public ArrayList<HashSet<EventNode>> trainCorefChains;
 	public ArrayList<HashSet<EventNode>> testCorefChains;
-	public HashMap<String, ArrayList<String>> actionToMentions;
+	public HashMap<String, ArrayList<String>> globalActionToMentions;
 	public HashMap<Integer, HashSet<String>> topicToActionSet;
 	public List<Integer> trainTopics;
 	public List<Integer> testTopics;
-	public final List<Integer> DEAD_TOPICS = Arrays.asList(15, 17);
 	public HashMap<String, ECBDoc> docs;
 	public List<File> files;
 	public HashSet<EventNode> missingTestEvs;
 	
 	public ECBWrapper(List<Integer> topics) {
-		this.actionToMentions = new HashMap<String, ArrayList<String>>(); // updated in "incorporateChains()"
+		this.globalActionToMentions = new HashMap<String, ArrayList<String>>(); // updated in "incorporateChains()"
 		this.topicToActionSet = new HashMap<Integer, HashSet<String>>(); // updated in "incorporateChains()"
 		this.missingTestEvs = new HashSet<EventNode>();
 		this.docs = new HashMap<String, ECBDoc>();
@@ -51,20 +50,7 @@ public class ECBWrapper {
 		this.files = getFilesFromTopics(topics);
 		this.loadFiles(this.files);
 	}
-	
-	public static boolean coferer(ECBDoc doc1, ECBDoc doc2) {
-		Set<String> doc1Evs = doc1.actionToMentions.keySet();
-		Set<String> doc2Evs = doc2.actionToMentions.keySet();
-		doc1Evs.retainAll(doc2Evs);
-		if(doc1Evs.size() > 0)
-			return true;
-		else
-			return false;
-	}
-	
-	public ECBDoc getDoc(File f) {
-		return this.docs.get(f.getName());
-	}
+
 	
 	/**
 	 * 
@@ -94,112 +80,76 @@ public class ECBWrapper {
 		}
 	}
 	
-	private void incorporateChains(ECBDoc doc) {
-		
-		for(String ev_id : doc.actionToMentions.keySet()) {
-			/*
-			 * map ev_id to topic
-			 */
-			if(!this.topicToActionSet.containsKey(doc.topic))
-				this.topicToActionSet.put(doc.topic, new HashSet<String>());
-			this.topicToActionSet.get(doc.topic).add(ev_id);
-			/*
-			 * incorporate doc coref chains into global chains
-			 */
-			if(!this.actionToMentions.containsKey(ev_id))
-				this.actionToMentions.put(ev_id, new ArrayList<String>());
-			for(String m_id : doc.actionToMentions.get(ev_id)) {
-				String globalMidKey = doc.file.getName() + Globals.DELIM + m_id;
-				// Some mentions appear more than once because they span
-				// more than one token. Only add each mention once.
-				if(!this.actionToMentions.get(ev_id).contains(globalMidKey))
-					this.actionToMentions.get(ev_id).add(globalMidKey);
-			}
-		}
-	}
-	
-	public List<List<EventNode>> getGoldDocClusteringEvPairs(List<Integer> topics, HashMap<String, String> fToClustMap){
-		MutableGraph<EventNode> graph = this.buildCorefGraph(topics, fToClustMap);
-		List<List<EventNode>> pairs = new LinkedList<List<EventNode>>();
-		HashSet<HashSet<EventNode>> seen = new HashSet<HashSet<EventNode>>();
-		for(EventNode ev1 : graph.nodes()) {
-			for(EventNode ev2 : graph.nodes()) {
-				if(!ev1.equals(ev2) 
-						&& fToClustMap.get(ev1.file.getName()).equals(fToClustMap.get(ev2.file.getName()))
-						&& seen.add(new HashSet<EventNode>(Arrays.asList(ev1, ev2))))
-					pairs.add(Arrays.asList(ev1,ev2));
-			}
-		}
-		return pairs;
-	}
-	public static HashMap<String, Double> getLabelDistribution(List<List<EventNode>> evs) {
-		double truePairs = 0;
-		double falsePairs = 0;
-		for(List<EventNode> ev : evs) {
-			if(ev.get(0).corefers(ev.get(1)))
-				truePairs++;
-			else
-				falsePairs++;
-		}
-		HashMap<String, Double> res = new HashMap<String, Double>();
-		res.put("true", truePairs);
-		res.put("false", falsePairs);
-
-		return res;
-	}
-	public List<List<EventNode>> buildTrainPairs(List<Integer> topics, boolean balanced, HashMap<String, String> fToClustMap) {
-		LOGGER.info("Building train set");
+	public GeneralTuple<List<List<EventNode>>, List<List<EventNode>>> buildTrainAndDevPairs(List<Integer> topics, boolean balanced, HashMap<String, String> fToClustMap) {
 		this.trainTopics = topics;
 		this.trainCorefGraph = this.buildCorefGraph(topics, fToClustMap);
 		this.trainCorefChains = this.buildCorefChains(this.trainCorefGraph);
-//		IntSummaryStatistics statistics = Globals.globalCorefChains.get(set).stream()
-//      .mapToInt(HashSet<EventNode>::size)
-//      .summaryStatistics();
-		if(balanced)
-			return this.buildBalancedEvPairSet(topics, this.trainCorefGraph, fToClustMap, 3);
-		else {
-			List<List<EventNode>> evs = new LinkedList<List<EventNode>>();
-			HashSet<HashSet<EventNode>> seen = new HashSet<HashSet<EventNode>>();
-			for(EventNode ev1 : ProgressBar.wrap(this.trainCorefGraph.nodes(),"building train pairs")) {
-				for(EventNode ev2 : this.trainCorefGraph.nodes()) {
-					if(!ev1.equals(ev2) && ev1.getTopic().equals(ev2.getTopic()) 
-							&& ev1.getSubTopic().equals(ev2.getSubTopic())
-							&& seen.add(new HashSet<EventNode>(Arrays.asList(ev1,ev2)))) {
-						evs.add(Arrays.asList(ev1, ev2));
-					}
-				}
-			}
-			return evs;
-		}
+		int falseTrueRatio = 3;
+		return this.buildTrainAndDevSets(topics, this.trainCorefGraph, fToClustMap, falseTrueRatio);
 	}
 	
-	// not true/false balanced
-	public List<List<EventNode>> buildTestPairs(List<Integer> topics, HashMap<String, String> fNameToClustMap, 
-												double evDistCutoff, double docSimCutoff, boolean balanced) {
+
+	public List<List<EventNode>> buildTestPairs(List<Integer> topics, HashMap<String, String> fNameToClustMap) {
 		LOGGER.info("Building test set");
 		this.testTopics = topics;
 		this.testCorefGraph = this.buildCorefGraph(topics, fNameToClustMap);
 		this.testCorefChains = this.buildCorefChains(this.testCorefGraph);
+
+		List<List<EventNode>> evs = new LinkedList<List<EventNode>>();
+		Set<EventNode> predEvs = this.testCorefGraph.nodes();
+		if(Globals.USE_TEST_PRED_EVS)
+			predEvs = this.getPredEvs(fNameToClustMap);
 		
-		if(balanced)
-			return this.buildBalancedEvPairSet(topics, this.testCorefGraph, fNameToClustMap, 1);
-		else {
-			List<List<EventNode>> evs = new LinkedList<List<EventNode>>();
-			HashSet<EventNode> missingEvs = new HashSet<EventNode>(this.testCorefGraph.nodes());
-			Set<Set<EventNode>> pairs = Sets.combinations(this.testCorefGraph.nodes(), 2);
-			
-			for(Set<EventNode> pair : pairs) {
-				List<EventNode> pairList = new LinkedList<EventNode>(pair);
-				EventNode ev1 = pairList.get(0);
-				EventNode ev2 = pairList.get(1);
-				if(fNameToClustMap.get(ev1.file.getName()).equals(fNameToClustMap.get(ev2.file.getName()))) {
-					missingEvs.removeAll(Arrays.asList(ev1, ev2));
-					evs.add(new LinkedList<EventNode>(pair));
-				}
+		HashSet<EventNode> missingEvs = new HashSet<EventNode>(predEvs);
+		Set<Set<EventNode>> pairs = Sets.combinations(predEvs, 2);
+		
+		for(Set<EventNode> pair : pairs) {
+			List<EventNode> pairList = new LinkedList<EventNode>(pair);
+			EventNode ev1 = pairList.get(0);
+			EventNode ev2 = pairList.get(1);
+			if(fNameToClustMap.get(ev1.file.getName()).equals(fNameToClustMap.get(ev2.file.getName()))) {
+				missingEvs.removeAll(Arrays.asList(ev1, ev2));
+				evs.add(new LinkedList<EventNode>(pair));
 			}
-			this.missingTestEvs = missingEvs;
-			return evs;
 		}
+		
+		this.missingTestEvs = missingEvs;
+		return evs;
+		
+	}
+	
+	private HashSet<EventNode> getPredEvs(HashMap<String, String> fNameToClustMap){
+		
+		HashSet<EventNode> predEvs = new HashSet<EventNode>();
+		
+		int i = 1;
+		for(String globalPredKey : this.globalActionToMentions.get("preds")) {
+			Path fileKey = Paths.get(Globals.ECBPLUS_DIR.toString(), globalPredKey.split(Globals.DELIM)[0]);
+			if(fNameToClustMap.containsKey(fileKey.toFile().getName())) {
+				String localMidKey= globalPredKey.split(Globals.DELIM)[1];
+				EventNode ev = new EventNode(fileKey.toFile(), localMidKey, "unk_"+i++); // ev1 in pair
+				predEvs.add(ev);
+			}
+		}
+		return predEvs;
+	}
+	
+	/**
+	 * Returns all coreference chains in given coreference graph
+	 * @param corefGraph
+	 * @return
+	 */
+	public ArrayList<HashSet<EventNode>> buildCorefChains(MutableGraph<EventNode> corefGraph) {
+		HashSet<EventNode> visitedNodes = new HashSet<EventNode>();
+		ArrayList<HashSet<EventNode>> chains = new ArrayList<HashSet<EventNode>>();
+		for(EventNode node : corefGraph.nodes()) {
+			if(!visitedNodes.contains(node)) {
+				Set<EventNode> reachableNodes = Graphs.reachableNodes(corefGraph, node);
+				visitedNodes.addAll(reachableNodes);
+				chains.add(new HashSet<EventNode>(reachableNodes));
+			}
+		}
+		return chains;
 	}
 	
 	
@@ -216,7 +166,7 @@ public class ECBWrapper {
 		HashSet<EventNode> singletons = new HashSet<EventNode>();
 		for(int topic : topics) {
 			for(String ev_id : this.topicToActionSet.get(topic)) { // add edges for every pair of corefering events
-				ArrayList<String> mIdChain = this.actionToMentions.get(ev_id);
+				ArrayList<String> mIdChain = this.globalActionToMentions.get(ev_id);
 				if(mIdChain.size() == 1) { // singleton event
 					String globalMidKey = mIdChain.iterator().next();
 					Path file = Paths.get(Globals.ECBPLUS_DIR.toString(), globalMidKey.split(Globals.DELIM)[0]);
@@ -243,13 +193,7 @@ public class ECBWrapper {
 						assertEquals(ev1.corefers(ev2), true);
 						if(fNameToClust.get(ev1.file.getName()).equals(fNameToClust.get(ev2.file.getName()))) {
 							graph.putEdge(ev1, ev2); // adds nodes silently if they don't exist
-						}
-//						else if(ev1.corefers(ev2)
-//								&& !fNameToClust.get(ev1.file.getName()).equals(fNameToClust.get(ev2.file.getName()))) {
-//							System.out.println(" NOT adding .... -> " + ev1 + " ... " + ev2);
-//							System.out.println(fNameToClust.get(ev1.file.getName() + " ? " + fNameToClust.get(ev2.file.getName())));
-//						}
-							
+						}	
 					}
 				}
 			}
@@ -257,48 +201,33 @@ public class ECBWrapper {
 		return graph;
 	}
 	
-	/**
-	 * Returns all coreference chains in given coreference graph
-	 * @param corefGraph
-	 * @return
-	 */
-	public ArrayList<HashSet<EventNode>> buildCorefChains(MutableGraph<EventNode> corefGraph) {
-		HashSet<EventNode> visitedNodes = new HashSet<EventNode>();
-		ArrayList<HashSet<EventNode>> chains = new ArrayList<HashSet<EventNode>>();
-		for(EventNode node : corefGraph.nodes()) {
-			if(!visitedNodes.contains(node)) {
-				Set<EventNode> reachableNodes = Graphs.reachableNodes(corefGraph, node);
-				visitedNodes.addAll(reachableNodes);
-				chains.add(new HashSet<EventNode>(reachableNodes));
-			}
-		}
-		return chains;
-	}
-	
-	
-	private List<List<EventNode>> buildBalancedEvPairSet(List<Integer> topics, MutableGraph<EventNode> graph, HashMap<String, String> fToClustMap,
+	private GeneralTuple<List<List<EventNode>>, List<List<EventNode>>> buildTrainAndDevSets(List<Integer> topics, MutableGraph<EventNode> graph, HashMap<String, String> fToClustMap,
 														 int multiplier) {
 
-		/*
-		 * Get all coref chains for these topics
-		 */
+		HashSet<EventNode> addedEvs = new HashSet<EventNode>();
 		List<List<EventNode>> truePairs = new ArrayList<List<EventNode>>();
+		HashSet<HashSet<EventNode>> falsePairs = new HashSet<HashSet<EventNode>>();
+		
+		/*
+		 * TRUE: get corefering event pairs, log added events
+		 */
+		
 		for(EndpointPair<EventNode> p : graph.edges()) {
-			ArrayList<EventNode> thisPair = new ArrayList<EventNode>();
 			if(!p.nodeU().equals(p.nodeV())) {
-				thisPair.add(p.nodeU());
-				thisPair.add(p.nodeV());
-				truePairs.add(thisPair);
+				truePairs.add(Arrays.asList(p.nodeU(), p.nodeV()));
+				addedEvs.addAll(Arrays.asList(p.nodeU(), p.nodeV()));
 			}
 		}
-		HashSet<EventNode> addedNodes = new HashSet<EventNode>();
-		for(List<EventNode> pair : truePairs)
-			addedNodes.addAll(pair);
-		HashSet<EventNode> allNodes = new HashSet<EventNode>(graph.nodes());
-		HashSet<EventNode> singletons = new HashSet<EventNode>(Sets.difference(allNodes, addedNodes));
-		HashSet<HashSet<EventNode>> falsePairs = new HashSet<HashSet<EventNode>>();
+		/*
+		 * singleton events do not participate in an edge, so add them here
+		 */
+		HashSet<EventNode> singletons = new HashSet<EventNode>(Sets.difference(graph.nodes(), addedEvs));
+		
+		/*
+		 * FALSE: add non-corefering event pairs, beginning with singletons
+		 */
+		
 		if(singletons.size() > 1) {
-			
 			for(Set<EventNode> pair : Sets.combinations(singletons, 2)) {
 				if(singletons.size() == 0)
 					break;
@@ -307,13 +236,12 @@ public class ECBWrapper {
 			}
 		}
 		else if(singletons.size() == 1)
-			falsePairs.add(new HashSet<EventNode>(Arrays.asList(singletons.iterator().next(), addedNodes.iterator().next())));
+			falsePairs.add(new HashSet<EventNode>(Arrays.asList(singletons.iterator().next(), addedEvs.iterator().next())));
 		
-		
-		List<String> actionList = new ArrayList<String>();
-		for(int t : topics)
-			actionList.addAll(this.topicToActionSet.get(t));
-		
+	
+		/*
+		 * add remaining (within doc-cluster) false pairs
+		 */
 		Set<Set<EventNode>> combs = Sets.combinations(graph.nodes(), 2);
 		for(Set<EventNode> p : combs) {
 			if(multiplier != -1) {
@@ -323,32 +251,131 @@ public class ECBWrapper {
 			List<EventNode> pair = new LinkedList<EventNode>(p);
 			EventNode ev1 = pair.get(0);
 			EventNode ev2 = pair.get(1);
-			if(!ev1.corefers(ev2)
+			if(!ev1.corefers(ev2) && !falsePairs.contains(p)
 					&& fToClustMap.get(ev1.file.getName()).equals(fToClustMap.get(ev2.file.getName())))
 				falsePairs.add(new HashSet<EventNode>(p));
 		}
+		List<List<EventNode>> falsePairsList = new LinkedList<List<EventNode>>();
+		for(HashSet<EventNode> pair : falsePairs)
+			falsePairsList.add(new LinkedList<EventNode>(pair));
+
+		Collections.shuffle(truePairs);
+		Collections.shuffle(falsePairsList);
 		
 		/*
-		 * over sample true pairs for training
+		 * split randomly into train and dev
 		 */
-		if(multiplier == -1) {
-			Random random = new Random();
-//			System.out.println("pre oversampling true pairs: " + truePairs.size());
-			while(truePairs.size() < falsePairs.size()) {
-				List<EventNode> pair = truePairs.get(random.nextInt(truePairs.size()));
-				truePairs.add(pair);
+		int totalPairs = truePairs.size() + falsePairsList.size();
+		int dev_true_pairs = (int)(totalPairs*0.01);
+		int dev_false_pairs = (int)(totalPairs*0.15);
+		
+		List<List<EventNode>> train = new LinkedList<List<EventNode>>();
+		List<List<EventNode>> dev = new LinkedList<List<EventNode>>();
+		
+		/*
+		 * true pairs
+		 */
+		for(List<EventNode> pair : truePairs) {
+			if(dev_true_pairs > 0) {
+				dev.add(pair);
+				dev_true_pairs--;
+			}
+			else 
+				train.add(pair);
+		}
+		
+		/*
+		 * false pairs
+		 */
+		for(List<EventNode> pair : falsePairsList) {
+			if(dev_false_pairs > 0) {
+				dev.add(pair);
+				dev_false_pairs--;
+			}
+			else
+				train.add(pair);
+		}
+		
+		LOGGER.info("train: " + train.size());
+		LOGGER.info("dev: " + dev.size());
+		
+		return new GeneralTuple<List<List<EventNode>>, List<List<EventNode>>>(train, dev);
+	}
+	
+	private void incorporateChains(ECBDoc doc) {
+		
+		for(String ev_id : doc.actionToMentions.keySet()) {
+
+			/*
+			 * map gold ev_id to topic
+				Collections.shuffle(train);
+		Collections.shuffle(dev);	 */
+			if(!ev_id.equals("preds")) {
+				if(!this.topicToActionSet.containsKey(doc.topic))
+					this.topicToActionSet.put(doc.topic, new HashSet<String>());
+				this.topicToActionSet.get(doc.topic).add(ev_id);
+			}
+			/*
+			 * incorporate doc coref chains into global chains
+			 */
+			if(!this.globalActionToMentions.containsKey(ev_id))
+				this.globalActionToMentions.put(ev_id, new ArrayList<String>());
+			
+			for(String m_id : doc.actionToMentions.get(ev_id)) {
+				String globalMidKey = doc.file.getName() + Globals.DELIM + m_id;
+				// Some mentions appear more than once because they span
+				// more than one token. Only add each mention once.
+				if(!this.globalActionToMentions.get(ev_id).contains(globalMidKey))
+					this.globalActionToMentions.get(ev_id).add(globalMidKey);
 			}
 		}
+	}
+	
+	public List<List<EventNode>> getGoldDocClusteringEvPairs(List<Integer> topics, HashMap<String, String> fToClustMap){
+		MutableGraph<EventNode> graph = this.buildCorefGraph(topics, fToClustMap);
 		List<List<EventNode>> pairs = new LinkedList<List<EventNode>>();
-		for(List<EventNode> pair : truePairs)
-			pairs.add(pair);
-		for(HashSet<EventNode> pair : falsePairs)
-			pairs.add(new LinkedList<EventNode>(pair));
-//		System.out.println("true pairs: " + truePairs.size());
-//		System.out.println("false pairs: " + falsePairs.size());
-		Collections.shuffle(pairs);
+
+		for(Set<EventNode> p : Sets.combinations(graph.nodes(), 2)) {
+			List<EventNode> pair = new LinkedList<EventNode>(p);
+			EventNode ev1 = pair.get(0);
+			EventNode ev2 = pair.get(1);
+			if(!ev1.equals(ev2) 
+					&& fToClustMap.get(ev1.file.getName()).equals(fToClustMap.get(ev2.file.getName())))
+				pairs.add(Arrays.asList(ev1,ev2));
+		}
 		
 		return pairs;
+	}
+	
+	
+	public static HashMap<String, Double> getLabelDistribution(List<List<EventNode>> evs) {
+		double truePairs = 0;
+		double falsePairs = 0;
+		for(List<EventNode> ev : evs) {
+			if(ev.get(0).corefers(ev.get(1)))
+				truePairs++;
+			else
+				falsePairs++;
+		}
+		HashMap<String, Double> res = new HashMap<String, Double>();
+		res.put("true", truePairs);
+		res.put("false", falsePairs);
+
+		return res;
+	}
+	
+	public static boolean coferer(ECBDoc doc1, ECBDoc doc2) {
+		Set<String> doc1Evs = doc1.actionToMentions.keySet();
+		Set<String> doc2Evs = doc2.actionToMentions.keySet();
+		doc1Evs.retainAll(doc2Evs);
+		if(doc1Evs.size() > 0)
+			return true;
+		else
+			return false;
+	}
+	
+	public ECBDoc getDoc(File f) {
+		return this.docs.get(f.getName());
 	}
 	
 	public static String cleanFileName(File file) {

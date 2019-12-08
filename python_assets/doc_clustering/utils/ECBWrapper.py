@@ -34,7 +34,7 @@ class ECBWrapper:
 
         for root, subdirs, files in os.walk(dir_):
             for f in files:
-                if isfile(join(root,f)) and f.endswith('naf'):
+                if isfile(join(root,f)) and f.endswith('xml'):
                     if self.topics is not None:
                         if self.get_topic_num(join(root,f))[0] in self.topics:
                             self.all_files.append(join(root, f))
@@ -45,7 +45,7 @@ class ECBWrapper:
             for line in f.readlines()[1:]:
                 line = line.split(',')
                 f_name = line[0] + '_' + line[1]
-                f_name = join(self.root_dir, f_name + '_aug.en.naf')
+                f_name = join(self.root_dir, f_name + '_aug.xml')
                 if f_name in self.all_files:
                     if f_name not in self.annotated:
                         self.annotated[f_name] = []

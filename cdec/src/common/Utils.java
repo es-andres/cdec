@@ -16,18 +16,21 @@ import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
-import org.spark_project.guava.io.Files;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Functions;
+import com.google.common.collect.Lists;
+import com.google.common.io.FileWriteMode;
+import com.google.common.io.Files;
 import com.google.common.math.Quantiles;
 
 import ecb_utils.ECBDoc;
 import ecb_utils.ECBWrapper;
 import ecb_utils.EventNode;
-import edu.stanford.nlp.util.StringUtils;
 import weka.classifiers.Classifier;
 import weka.core.Instance;
 import weka.core.Instances;
+import weka.core.converters.CSVSaver;
 
 /**
  * Misc. procedures that could be in main but add too much visual clutter
@@ -59,7 +62,20 @@ public class Utils {
 		return records;
 	}
 	
-	public static void logResults(HashMap<String, ArrayList<Double>> scores, String logMessage, String experiment_id) {
+	public static void saveCsv(Instances train) {
+	    CSVSaver csv = new CSVSaver();
+	    try {
+			Paths.get(Globals.ROOT_DIR.toString(), "data", "train.csv").toFile().createNewFile();
+		    csv.setFile(Paths.get(Globals.ROOT_DIR.toString(), "data", "train.csv").toFile());
+		    csv.setInstances(train);
+		    csv.setDestination(Paths.get(Globals.ROOT_DIR.toString(), "data", "train.csv").toFile());
+		    csv.writeBatch();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+	public static void logResults(HashMap<String, ArrayList<Double>> scores, String logMessage) {
 		String time = new Timestamp(System.currentTimeMillis()).toString().replace(" ", "_");
 
 		/*
@@ -69,9 +85,8 @@ public class Utils {
 		scoreList.add(0, "experiment_id");
 		StringBuilder csvAll = new StringBuilder(String.join(",", scoreList) + "\n");
 		for(int i = 0; i < scores.get(scoreList.get(1)).size(); i++) {
-			String row = experiment_id + ",";
+			String row = logMessage + ",";
 			for(String score : scoreList) {
-//				System.out.println(score);
 				if(!score.equals("experiment_id")) {
 					row += scores.get(score).get(i) + ",";					
 				}
@@ -81,33 +96,20 @@ public class Utils {
 			csvAll.append(row);
 		}
 		
-		/*
-		 * avg scores
-		 */
-		List<String> toAvg = Arrays.asList("experiment_id", "conll_f1", "clf_f1", "clf_precision", "clf_recall");
-		StringBuilder csvAvg = new StringBuilder(String.join(",", toAvg) +  "\n");
-		String row = "";
-		for(String score : toAvg) {
-			if(score.equals("experiment_id"))
-				row = experiment_id + ",";
-			else
-				row += scores.get(score).stream().mapToDouble(a -> a).average().getAsDouble() +  ",";
-		}
-		row = row.substring(0, row.length() - 1);
-		csvAvg.append(row);
 		
 		/*
 		 * log
 		 */
 		List<String> logCols = Arrays.asList("experiment_id", "file_name", "description", "conll_f1",
 												"muc_f1", "bcub_f1", "ceafe_f1",
-												"clf_f1", "clf_precision", "clf_recall", "clf_accuracy");
+												"clf_f1", "clf_precision", "clf_recall", "clf_accuracy", "beta");
+//		List<String> logCols = Arrays.asList("experiment_id", "file_name", "description", "conll_f1", "beta");
 		File logCsvFile = Paths.get(Globals.RESULTS_DIR.toString(),  "log.csv").toFile();
 		if(!logCsvFile.exists()) {
 			try {
 				logCsvFile.createNewFile();
 				StringBuilder logCsvHeader = new StringBuilder(String.join(",", logCols) + "\n");
-				Files.append(logCsvHeader.toString(), logCsvFile, Charsets.UTF_8);
+				Files.asCharSink(logCsvFile, Charsets.UTF_8, FileWriteMode.APPEND).write(logCsvHeader.toString());
 			}
 			catch(IOException e) {
 				e.printStackTrace();
@@ -117,13 +119,14 @@ public class Utils {
 		String logRow = "";
 		for(String colName : logCols) {
 			if(colName.equals("experiment_id"))
-				logRow = experiment_id + ",";
+				logRow = logMessage+ ",";
 			else if(colName.equals("file_name"))
 				logRow += time + ",";
 			else if(colName.equals("description"))
 				logRow += logMessage.replace(",",";") + ",";
-			else
+			else {
 				logRow += scores.get(colName).get(scores.get(colName).size() - 1) +  ",";
+			}
 //				logRow += scores.get(colName).stream().mapToDouble(a -> a).average().getAsDouble() + ",";
 		}
 		logRow = logRow.substring(0, logRow.length() - 1) + "\n";
@@ -134,13 +137,9 @@ public class Utils {
 		
 		try {
 			// scores
-			Files.write(csvAll, allFile, Charsets.UTF_8);
-			Files.write(csvAvg, avgFile, Charsets.UTF_8);
+			Files.asCharSink(allFile, Charsets.UTF_8).write(csvAll);
 			// log
-			logTxtFile.createNewFile();
-			logMessage = time + ": " + logMessage + "\n" + StringUtils.repeat("-", 8) + "\n";
-			Files.append(logMessage, logTxtFile, Charsets.UTF_8);
-			Files.append(logRow, logCsvFile, Charsets.UTF_8);
+			Files.asCharSink(logCsvFile, Charsets.UTF_8, FileWriteMode.APPEND).write(logRow);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -236,6 +235,8 @@ public class Utils {
     	
     	for(String t : Arrays.asList("v-measure", "completeness", "homogeneity", "ari"))
     		scores.put(t, new ArrayList<Double>());
+    	
+    	scores.put("beta", new ArrayList<Double>());
 
     	return scores;
 	}
@@ -253,7 +254,7 @@ public class Utils {
 			}
 		}
 		return invertedMap;
-	}
+	} 
 	
 	/**
 	 * Makes a map from file name to gold-standard document cluster
@@ -294,24 +295,39 @@ public class Utils {
 	}
 	
 	
-	public static GeneralTuple<Double, HashMap<HashSet<EventNode>, Double>> testClassifier(Classifier clf, LinkedList<GeneralTuple<Instance, List<EventNode>>> test, 
-																	 Instances train, HashMap<String, ArrayList<Double>> scores,
+	public static GeneralTuple<Double, HashMap<HashSet<EventNode>, Double>> testClassifier(Classifier clf, 
+																	 LinkedList<GeneralTuple<Instance, List<EventNode>>> test,
+																	 LinkedList<GeneralTuple<Instance, List<EventNode>>> dev, 
+																	 HashMap<String, ArrayList<Double>> scores,
 																	 double beta) {
 		LOGGER.info("Testing classifier and finding optimal prediction cutoff");
 
-		ArrayList<Double> preds = new ArrayList<Double>();
-		ArrayList<Integer> labels = new ArrayList<Integer>();
-		HashMap<HashSet<EventNode>, Double> predLog = new HashMap<HashSet<EventNode>, Double>();
-
+		HashMap<HashSet<EventNode>, Double> testPredLog = new HashMap<HashSet<EventNode>, Double>();
 		for(GeneralTuple<Instance, List<EventNode>> tup : test) {
 			Instance inst = tup.first;
 			List<EventNode> pair = tup.second;
 			double pred;
 			try {
 				pred = clf.distributionForInstance(inst)[1];
-				preds.add(pred);
-				labels.add((int)inst.classValue());
-				predLog.put(new HashSet<EventNode>(pair), pred);
+				testPredLog.put(new HashSet<EventNode>(pair), pred);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
+		
+		ArrayList<Double> devPreds = new ArrayList<Double>();
+		ArrayList<Integer> devLabels = new ArrayList<Integer>();
+		HashMap<HashSet<EventNode>, Double> devPredLog = new HashMap<HashSet<EventNode>, Double>();
+		for(GeneralTuple<Instance, List<EventNode>> tup : dev) {
+			Instance inst = tup.first;
+			List<EventNode> pair = tup.second;
+			double pred;
+			try {
+				pred = clf.distributionForInstance(inst)[1];
+				devPreds.add(pred);
+				devLabels.add((int)inst.classValue());
+				devPredLog.put(new HashSet<EventNode>(pair), pred);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -324,15 +340,16 @@ public class Utils {
 		double max_f1 = Double.MIN_VALUE;
 		double max_fB = Double.MIN_VALUE;
 		double max_accuracy = Double.MIN_VALUE;
+
 		for(int quant : IntStream.range(60, 99).toArray()) {
 			double tp = 0;
 			double fp = 0;
 			double fn = 0;
 			double tn = 0;
-			double cutoff = Quantiles.percentiles().index(quant).compute(preds);
-			for(int i = 0; i < preds.size(); i++) {
-				double conf = preds.get(i);
-				int label = labels.get(i);
+			double cutoff = Quantiles.percentiles().index(quant).compute(devPreds);
+			for(int i = 0; i < devPreds.size(); i++) {
+				double conf = devPreds.get(i);
+				int label = devLabels.get(i);
 				double pred = (conf >= cutoff) ? 1 : 0;
 				boolean correct = (label == pred);
 				if(correct && pred == 1)
@@ -349,6 +366,7 @@ public class Utils {
 			double precision = tp / (tp + fp);
 			double f1 = 2*((precision*recall)/(precision+recall));
 			double fB = (1 + Math.pow(beta, 2))*((precision*recall)/(beta*precision+recall));
+			
 			if(fB > max_fB) {
 				max_fB = fB;
 				max_recall = recall;
@@ -358,14 +376,15 @@ public class Utils {
 				max_accuracy = accuracy;
 			}
 		}
-
+		
+		// COMMENTED FOR BETA
 	    scores.get("clf_f1").add(max_f1);
 	    scores.get("clf_recall").add(max_recall);
 	    scores.get("clf_precision").add(max_precision);
 	    scores.get("clf_accuracy").add(max_accuracy);
 	    scores.get("clf_cutoff").add(max_cutoff);
 	    
-	    return new GeneralTuple<Double, HashMap<HashSet<EventNode>, Double>>(max_cutoff, predLog);
+	    return new GeneralTuple<Double, HashMap<HashSet<EventNode>, Double>>(max_cutoff, testPredLog);
 		
 	}
 }

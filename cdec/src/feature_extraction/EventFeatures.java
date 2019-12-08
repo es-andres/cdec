@@ -1,6 +1,6 @@
 package feature_extraction;
 
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+//import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -111,7 +111,7 @@ public class EventFeatures {
 			if (term.equals(word))
 				result++;
 		}
-		assertNotEquals(result, 0);
+//		assertNotEquals(result, 0);
 		return result / doc.size();
 	}
 
@@ -132,7 +132,7 @@ public class EventFeatures {
 			}
 		}
 		double idf = Math.log(docs.size() / n);
-		assertNotEquals(n, 0.0);
+//		assertNotEquals(n, 0.0);
 		return idf;
 	}
 	
@@ -171,30 +171,6 @@ public class EventFeatures {
 		return vec;
 	}
 	
-	public double[] makeEvVector2(List<IndexedWord> ev, List<CoreSentence> sents) {
-		List<String> words = new LinkedList<String>();
-		for(IndexedWord t : ev) {
-			String word = cleanTok(new CoreLabel(t), this.lemmatize, this.pos);
-			if(word != null)
-				words.add(word);
-		}
-		List<List<String>> strDocs = new ArrayList<List<String>>();
-		HashMap<String, Integer> vocabDict = new HashMap<String, Integer>();
-		int i = 0;
-		for(CoreSentence s : sents) {
-			ArrayList<String> strSent = clean(s);
-			for(String w : strSent) {
-				if(!vocabDict.containsKey(w))
-					vocabDict.put(w, i++);
-			}
-			strDocs.add(strSent);
-		}
-		double[] vec = new double[vocabDict.size()];
-		for(String w : words) {
-			vec[vocabDict.get(w)] = tf(w, words)* idf(w, strDocs);
-		}
-		return vec;
-	}
 	public double[] makeEvVector(List<IndexedWord> evText, List<CoreSentence> doc) {
 		/*
 		 * document
@@ -236,9 +212,8 @@ public class EventFeatures {
 			}
 		}
 		double[] vector = new double[this.dict.size()];
-		for(String gram : evNGrams) {
+		for(String gram : evNGrams)
 			vector[this.dict.get(gram)] += 1.0/evNGrams.size();
-		}
 
 		return vector;
 	}

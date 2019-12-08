@@ -14,9 +14,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import org.apache.commons.math3.ml.distance.DistanceMeasure;
-import org.apache.commons.math3.ml.distance.EuclideanDistance;
-
 import org.nd4j.linalg.cpu.nativecpu.NDArray;
 import org.nd4j.linalg.ops.transforms.Transforms;
 
@@ -95,27 +92,28 @@ public class EvPairDataset {
 		}
 
 		/*
-		 * event text distribution distance
+		 * event text distribution sim
 		 */
 		int ngrams = 1;
-		TFIDF tfidf = new TFIDF(sentenceCorpus, lemmatize, pos, ngrams);
-		@SuppressWarnings("unused")
-		DistanceMeasure euclDist = new EuclideanDistance();
-//		double sim = 1 - euclDist.compute(tfidf.makeEvVector(ev1Text, ev1Sentences), tfidf.makeEvVector(ev2Text, ev2Sentences));
-		double sim = Transforms.cosineSim(this.doubleArrToNDArr(tfidf.makeEvVector(ev1Text, ev1Sentences)),
-										 this.doubleArrToNDArr(tfidf.makeEvVector(ev2Text, ev2Sentences)));
-		instance.setValue(this.data.attribute("word_distribution_sim"), sim);
-
+		EventFeatures feats = new EventFeatures(sentenceCorpus, lemmatize, pos, ngrams);
+		double sim = Transforms.cosineSim(this.doubleArrToNDArr(feats.makeEvVector(ev1Text, ev1Sentences)),
+										 this.doubleArrToNDArr(feats.makeEvVector(ev2Text, ev2Sentences)));
+		if(Double.isNaN(sim))
+			sim = 0.16; // set to avg
+//		instance.setValue(this.data.attribute("word_distribution_sim"), sim);
+		
+		/*
+		 * relative sentence sim
+		 */
 		String s_id1 = doc1.toks.get(doc1.mentionIdToTokens.get(ev1.m_id).get(0)).get("sentence");
 		String s_id2 = doc2.toks.get(doc2.mentionIdToTokens.get(ev2.m_id).get(0)).get("sentence");
 		if(ev1.file.equals(ev2.file) && s_id1.equals(s_id2)) {
-			instance.setValue(this.data.attribute("ev_sentence_sim"), 1.0);
+//			instance.setValue(this.data.attribute("ev_sentence_sim"), 1.0);
 		}
 		else {
-//			sim =  1 - euclDist.compute(tfidf.makeSentVector(ev1Sentences, docCorpus),tfidf.makeSentVector(ev2Sentences, docCorpus));
-			sim = Transforms.cosineSim(this.doubleArrToNDArr(tfidf.makeSentVector(ev1Sentences, docCorpus)), 
-										this.doubleArrToNDArr(tfidf.makeSentVector(ev2Sentences, docCorpus)));
-			instance.setValue(this.data.attribute("ev_sentence_sim"), sim);
+			sim = Transforms.cosineSim(this.doubleArrToNDArr(feats.makeSentVector(ev1Sentences, docCorpus)), 
+										this.doubleArrToNDArr(feats.makeSentVector(ev2Sentences, docCorpus)));
+//			instance.setValue(this.data.attribute("ev_sentence_sim"), sim);
 		}
 		
 		/*
@@ -126,7 +124,7 @@ public class EvPairDataset {
 										"n_similarity", 
 										delim + doc1.getHeadText(ev1.m_id), 
 										delim + doc2.getHeadText(ev2.m_id));
-		instance.setValue(this.data.attribute("head_word_vec_sim"), Double.parseDouble(getHTML(request)));
+//		instance.setValue(this.data.attribute("head_word_vec_sim"), Double.parseDouble(getHTML(request)));
 		
 		/*
 		 * pos
@@ -136,19 +134,7 @@ public class EvPairDataset {
 		boolean NN = pos1.contains("N") && pos2.contains("N");
 		boolean VV = pos1.contains("V") && pos2.contains("V");
 		instance.setValue(this.data.attribute("same_POS"), (NN || VV) ? "1" : "0");
-		
-		/*
-		 * sentence dist
-		 */
-//		int ev1_snum = Integer.parseInt(doc1.toks.get(doc1.mentionIdToTokens.get(ev1.m_id).get(0)).get("sentence"));
-//		int doc1_numsent = Integer.parseInt(doc1.toks.get(doc1.inOrderToks.get(doc1.inOrderToks.size() - 1)).get("sentence"));
-//		double ev1_position = (1.0*ev1_snum)/doc1_numsent;
-//		int ev2_snum = Integer.parseInt(doc2.toks.get(doc2.mentionIdToTokens.get(ev2.m_id).get(0)).get("sentence"));
-//		int doc2_numsent = Integer.parseInt(doc2.toks.get(doc2.inOrderToks.get(doc2.inOrderToks.size() - 1)).get("sentence"));
-//		double ev2_position = (1.0*ev2_snum)/doc2_numsent;
-//		instance.setValue(this.data.attribute("sentence_dist"), Math.abs(ev1_position - ev2_position));
 			
-		
 		instance.setValue(this.data.attribute("class"), ev1.corefers(ev2) ? "1" : "0");
 		
 		

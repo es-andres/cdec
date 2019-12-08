@@ -29,11 +29,11 @@ class ECBDocWrapper:
         self.tree = ET.parse(self.path)
         self.root = self.tree.getroot()
 
-    def augment_ecb_tokens(self):
+    def augment_ecb_tokens(self, predict_events):
         self.root.set('doc_name', self.root.attrib['doc_name'].replace('.xml', '_aug.xml'))
         aug_toks = ET.SubElement(self.root, "Augmented_Tokens")
         pred_evs = dict()
-        if self.aug_fname in cleaned:
+        if self.aug_fname in cleaned and predict_events:
             pred_evs = self.predict_events()
         for tok in self.get_all_tokens():
             aug_tok = copy.deepcopy(tok)
@@ -89,8 +89,6 @@ class ECBDocWrapper:
                         chains[tok.attrib['ev_id']] = []
                     chains[tok.attrib['ev_id']] = list(set(chains[tok.attrib['ev_id']] + [self.fname + '_' + tok.attrib['m_id']]))
         return num_evs, chains
-
-
 
     def predict_events(self):
         s_id_to_offsets = dict()

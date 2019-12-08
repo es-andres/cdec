@@ -67,7 +67,7 @@ public class CustomCluster {
 			
 		}
 		Collections.sort(preds, new CustomComparator());
-		
+		System.out.println("CUTOFF: " + cutoff);
 		MutableGraph<EventNode> graph = GraphBuilder.undirected().<EventNode>build();
 		for(PairPred pred : preds) {
 			if(pred.sim > cutoff) {

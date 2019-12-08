@@ -45,7 +45,7 @@ import edu.stanford.nlp.pipeline.CoreNLPProtos;
 import edu.stanford.nlp.pipeline.CoreSentence;
 import edu.stanford.nlp.pipeline.ProtobufAnnotationSerializer;
 import edu.stanford.nlp.semgraph.SemanticGraph;
-import feature_extraction.TFIDF;
+import feature_extraction.EventFeatures;
 
 /**
  * - In memory representation of an ecb+ naf file.
@@ -79,7 +79,7 @@ public class ECBDoc {
 		this.sentenceIdToTokens = new HashMap<String, List<String>>();
 		this.actionToMentions = new HashMap<String, HashSet<String>>();
 		this.evCorefGraph = GraphBuilder.undirected().<EventNode>build();
-		this.mIdToEventText = new HashMap<String, HashMap<String, TreeMap<Integer, IndexedWord>>>();
+		this.mIdToEventText = new HashMap<String, HashMap<String, TreeMap<Integer,IndexedWord>>>();
 		
 		List<HashMap<String, String>> tokens = this.readXML(f);
 		this.parseTokens(tokens);
@@ -106,7 +106,7 @@ public class ECBDoc {
 	public String getDocText() {
 		String doc = "";
 		for(CoreLabel tok : coreDoc.tokens()) {
-			String clean = TFIDF.cleanTok(tok, false, new HashSet<String>(Arrays.asList("N", "V")));
+			String clean = EventFeatures.cleanTok(tok, false, new HashSet<String>(Arrays.asList("N", "V")));
 			if(clean!= null)
 				doc += clean + " ";
 		}
@@ -135,7 +135,7 @@ public class ECBDoc {
 				coreTok.setOriginalText(ecbTok);
 			}
 			assertEquals(coreTok.originalText(), ecbTok);
-			String clean = TFIDF.cleanTok(coreTok, false, new HashSet<String>());
+			String clean = EventFeatures.cleanTok(coreTok, false, new HashSet<String>());
 			if(clean != null)
 				head += clean + "+";
 		}
@@ -159,9 +159,22 @@ public class ECBDoc {
 						Iterator<?> it = startElement.getAttributes();
 						while(it.hasNext()) {
 							Attribute att = (Attribute)it.next();
-							token.put(att.getName().toString(), att.getValue());
+							// just for now before changing this in Augmented_Tokens python script
+							if(att.getName().toString().equals("pred_ev")) {
+								String pred_mid = att.getValue();
+								if(!pred_mid.equals("") && !pred_mid.contains("pred_"))
+									pred_mid = att.getValue(); 
+								token.put(att.getName().toString(), pred_mid);
+							}
+							else
+								token.put(att.getName().toString(), att.getValue());
 						}
-						token.put("text", xmlEventReader.nextEvent().toString().replaceAll("\\s+",""));
+						String txt = xmlEventReader.nextEvent().toString().replaceAll("\\s+","");
+						String clean = txt.replaceAll("[^a-zA-Z0-9]", "");
+						// filter out spurious (non-word and single letter) event trigger predictions
+						if(clean.length() <= 1)
+							token.put("pred_ev", "");
+						token.put("text", txt);
 						tokens.add(token);
 					}
 				}
@@ -228,11 +241,15 @@ public class ECBDoc {
 				 */
 				String pred_m_id = token.get("pred_ev");
 				if(!pred_m_id.equals("")) {
-					if(!pred_m_id.contains("pred_"))
-						pred_m_id = "pred_" + pred_m_id; // just for now before changing this in Augmented_Tokens python script
+					// mention
 					if(!this.mentionIdToTokens.containsKey(pred_m_id))
 						this.mentionIdToTokens.put(pred_m_id, new LinkedList<String>());
 					this.mentionIdToTokens.get(pred_m_id).add(t_id);
+					
+					// action
+					if(!this.actionToMentions.containsKey("preds"))
+						this.actionToMentions.put("preds", new HashSet<String>());
+					this.actionToMentions.get("preds").add(pred_m_id);
 				}
 				
 			}
@@ -287,11 +304,9 @@ public class ECBDoc {
 				"\"coref.algorithm\": \"neural\"," + 
                 "\"outputFormat\": \"serialized\","
                 + "\"serializer\": \"edu.stanford.nlp.pipeline.ProtobufAnnotationSerializer\"}";
-        StringEntity requestEntity = new StringEntity(
-        	    doc,
-        	    ContentType.APPLICATION_JSON);
+        StringEntity requestEntity = new StringEntity(doc,ContentType.APPLICATION_JSON);
 
-    	HttpPost postMethod = new HttpPost("http://localhost:9000/?" + UrlEscapers.urlFormParameterEscaper().escape(args));
+    	HttpPost postMethod = new HttpPost(Globals.CORE_NLP_SERVER + "/?" + UrlEscapers.urlFormParameterEscaper().escape(args));
     	postMethod.setEntity(requestEntity);
     	HttpResponse rawResponse = null;
     	ProtobufAnnotationSerializer serial = new ProtobufAnnotationSerializer();

@@ -10,35 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def make_labels(ax, data):
-
-    # # The x position of the median line
-    # xpos = med.get_xdata()
-    #
-    # # Lets make the text have a horizontal offset which is some
-    # # fraction of the width of the box
-    # xoff = 0.10 * (xpos[1] - xpos[0])
-
-    # The x position of the labels
-    # xlabel = xpos[1] + xoff
-
-    # The median is the y-position of the median line
-    median = np.quantile(data,  0.5)
-    # The 25th and 75th percentiles are found from the
-    # top and bottom (max and min) of the box
-    pc25 = np.quantile(data,  0.25)
-    pc75 = np.quantile(data,  0.75)
-
-    # Make some labels on the figure using the values derived above
-    ax.text(500, .6,
-            '{:6.3g}'.format(median), va='center')
-    # ax.text(pc25, .6,
-    #         '{:6.3g}'.format(pc25), va='center')
-    # ax.text(pc75, .6,
-    #         '{:6.3g}'.format(pc75), va='center')
-
-
-def augment_files():
+def augment_files(predict_events):
     total_files = 0
     for root, subdirs, files in walk(vars.ECB_PATH):
         for f in files:
@@ -50,7 +22,7 @@ def augment_files():
         for f in files:
             if isfile(join(root, f)) and f.endswith('.xml'):
                 ecb_doc = ECBDocWrapper(join(root, f))
-                ecb_doc.augment_ecb_tokens()
+                ecb_doc.augment_ecb_tokens(predict_events)
                 done += 1
                 print(str(done) + '/' + str(total_files))
 
@@ -157,9 +129,9 @@ def make_boxplot(data, label, fname):
 
 
 
-# augment_files() # to augment ecb+ files
+augment_files(predict_events = False) # to augment ecb+ files
 # ev_pred_perf() # calculate event detection performance
-evs_per_doc()
-count_evs_and_chains() # chain and ev stats
-docs_per_clust()
-words_per_doc()
+# evs_per_doc()
+# count_evs_and_chains() # chain and ev stats
+# docs_per_clust()
+# words_per_doc()
