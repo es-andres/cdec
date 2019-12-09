@@ -1,6 +1,3 @@
----
-layout: default
----
 # Cross-Document Event Coreference (CDEC)
 
 Code to perform CDEC, which is the task of clustering event mentions in a collection
